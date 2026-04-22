@@ -1,13 +1,12 @@
 <?php
 /**
  * login.php — Halaman Login
- * Semua role (admin_master, admin, kontributor, user) login di sini.
  */
 session_start();
-
+require_once 'Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
 
 if (isset($_SESSION['login']) && $_SESSION['login'] === true) {
-    $dest = in_array($_SESSION['role'],['admin','admin_master']) ? 'dashboard.php' : 'dashboard-user.php';
+    $dest = in_array($_SESSION['role'], ['admin','admin_master']) ? 'dashboard.php' : 'dashboard-user.php';
     redirect($dest);
 }
 
@@ -81,6 +80,14 @@ body {
       <div>
         <strong>Akun Terkunci Sementara</strong><br/>
         <span class="text-xs">Terlalu banyak percobaan login gagal. Akun dikunci selama <strong><?= $menitKunci ?> menit</strong>. Coba lagi nanti atau hubungi admin.</span>
+      </div>
+    </div>
+    <?php elseif ($pesanUrl === 'nodb'): ?>
+    <div class="mb-5 msg-warning flex items-start gap-3">
+      <i data-lucide="database" class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5"></i>
+      <div>
+        <strong>Database Belum Terhubung</strong><br/>
+        <span class="text-xs">Fitur login belum aktif karena database belum dikonfigurasi. Hubungi administrator untuk setup database.</span>
       </div>
     </div>
     <?php elseif ($pesanUrl === 'gagal' && $sisaCoba > 0): ?>

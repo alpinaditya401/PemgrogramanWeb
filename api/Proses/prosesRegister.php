@@ -8,7 +8,12 @@
  * ─────────────────────────────────────────────────────────────
  */
 session_start();
-require '../Server/koneksi.php';
+require_once '../Server/koneksi.php';
+
+// Mode no-DB: redirect dengan pesan
+if ($conn === null) {
+    redirect('../register.php?pesan=nodb');
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('../register.php');
 

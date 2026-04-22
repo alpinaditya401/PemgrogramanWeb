@@ -1,23 +1,16 @@
 <?php
 /**
- * register.php — Halaman Registrasi dengan pilihan Role
- * ─────────────────────────────────────────────────────────────
- * User dapat memilih role saat daftar:
- *   - user        → akses dashboard, grafik, artikel
- *   - kontributor → + bisa kirim laporan harga lapangan
- *
- * Provinsi & kota diambil dari mapping PROVINSI_KOTA (Server/bps_api.php)
- * yang bersumber dari API BPS.
- * ─────────────────────────────────────────────────────────────
+ * register.php — Halaman Register
  */
 session_start();
+require_once 'Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
 
-require_once 'Server/bps_api.php';
-
-if (isset($_SESSION['login'])) redirect('dashboard-user.php');
+if (isset($_SESSION['login']) && $_SESSION['login'] === true) {
+    redirect('dashboard-user.php');
+}
 
 $pageTitle = 'Daftar Akun';
-$pageDesc  = 'Buat akun untuk akses dashboard harga komoditas Indonesia.';
+$pageDesc  = 'Buat akun baru di InfoHarga Komoditi.';
 ?>
 <!doctype html>
 <html lang="id">
@@ -92,6 +85,15 @@ input[type="radio"] { display: none; }
       <h1 class="font-display font-black text-2xl text-[var(--text-primary)] mb-1">Buat Akun</h1>
       <p class="text-sm text-[var(--text-muted)] mb-6">Pilih peran dan lengkapi data Anda</p>
 
+      <?php if (($_GET['pesan'] ?? '') === 'nodb'): ?>
+      <div class="mb-5 msg-warning flex items-start gap-3" style="background:rgba(245,158,11,.08);color:#f59e0b;border:1px solid rgba(245,158,11,.2);border-radius:.75rem;padding:.75rem 1rem;font-size:.875rem;">
+        <i data-lucide="database" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <strong>Database Belum Terhubung</strong><br/>
+          <span style="font-size:.8rem">Fitur registrasi belum aktif karena database belum dikonfigurasi.</span>
+        </div>
+      </div>
+      <?php endif; ?>
       <div id="msg-box" class="hidden mb-5 text-sm"></div>
 
       <form action="Proses/prosesRegister.php" method="POST" novalidate class="space-y-4">

@@ -1,4 +1,6 @@
 <?php
+// Fallback jika APP_NAME belum didefinisikan
+if (!defined('APP_NAME')) define('APP_NAME', 'InfoHarga Komoditi');
 /**
  * Assets/head.php
  * ─────────────────────────────────────────────────────────────
