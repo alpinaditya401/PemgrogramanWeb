@@ -12,9 +12,18 @@ define('DB_PORT', (int) (getenv('DB_PORT') ?: 4000));
 mysqli_report(MYSQLI_REPORT_OFF);
 
 // TiDB Cloud WAJIB pakai SSL
-$conn = new mysqli();
-$conn->ssl_set(NULL, NULL, NULL, NULL, NULL);
-$conn->real_connect(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT, NULL, MYSQLI_CLIENT_SSL);
+$conn = mysqli_init();
+mysqli_ssl_set($conn, NULL, NULL, NULL, NULL, NULL);
+mysqli_real_connect(
+    $conn,
+    DB_HOST,
+    DB_USER,
+    DB_PASS,
+    DB_NAME,
+    DB_PORT,
+    NULL,
+    MYSQLI_CLIENT_SSL | MYSQLI_CLIENT_SSL_DONT_VERIFY_SERVER_CERT
+);
 
 if ($conn->connect_error) {
     die('Koneksi database gagal: ' . $conn->connect_error);
