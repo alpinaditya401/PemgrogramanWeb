@@ -1,7 +1,6 @@
 <?php
 /**
  * Proses/prosesLogin.php
- * Mode: No Database — tampilkan pesan informatif
  */
 require_once __DIR__ . '/../Server/koneksi.php';
 
@@ -9,16 +8,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('/login.php');
 }
 
-// Cek apakah DB tersedia ($conn bukan null)
 if ($conn === null) {
-    // Mode no-DB: redirect ke login dengan pesan
     redirect('/login.php?pesan=nodb');
 }
 
-// ── Ada DB: proses login normal ──────────────────────────────
 $username = esc($conn, trim($_POST['username'] ?? ''));
 $password = trim($_POST['password'] ?? '');
-$ip       = esc($conn, $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
 
 if (!$username || !$password) redirect('/login.php?pesan=empty');
 
@@ -47,7 +42,7 @@ if (!empty($u['locked_until'])) {
 
 if (password_verify($password, $u['password'])) {
     $conn->query("UPDATE users SET login_attempts=0, locked_until=NULL WHERE id={$u['id']}");
-    session_regenerate_id(true);
+
     $_SESSION['login']    = true;
     $_SESSION['user_id']  = (int)$u['id'];
     $_SESSION['username'] = $u['username'];
