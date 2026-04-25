@@ -6,7 +6,6 @@
  * Memetakan nama provinsi Indonesia → nama dalam TopoJSON (Inggris)
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 cekLogin();
 
