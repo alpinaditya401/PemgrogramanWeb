@@ -6,7 +6,6 @@
  * Parameter: ?u=username  ATAU  ?id=user_id
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 cekLogin();
 
