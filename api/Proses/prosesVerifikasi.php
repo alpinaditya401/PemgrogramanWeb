@@ -3,7 +3,7 @@
  * Proses/prosesVerifikasi.php — Admin approve/reject laporan kontributor
  */
 session_start();
-require '../Server/koneksi.php';
+require_once __DIR__ . '/../Server/koneksi.php';
 if (!isset($_SESSION['login']) || !in_array($_SESSION['role'],['admin','admin_master'])) redirect('../login.php');
 
 $id      = (int)($_POST['id']     ?? 0);
