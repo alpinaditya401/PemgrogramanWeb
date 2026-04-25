@@ -131,5 +131,6 @@ function slugify(string $text): string
     $text = preg_replace('/[\s-]+/', '-', $text);
     return trim($text, '-');
 }
-
+require_once __DIR__ . '/session_db.php';
+startDbSession($conn);
 require_once __DIR__ . '/bps_api.php';
