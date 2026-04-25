@@ -10,7 +10,6 @@
  *   (tanpa param)    → diskusi umum semua komoditas
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 cekLogin();
 
