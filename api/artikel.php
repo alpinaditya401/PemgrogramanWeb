@@ -7,7 +7,6 @@
  * Setiap kunjungan ke halaman ini menaikkan kolom 'views'.
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 
 // Ambil slug dari URL, sanitasi
