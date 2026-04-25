@@ -11,7 +11,6 @@
  * 4. Log hasil sinkronisasi
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 if (!isset($_SESSION['login'])) { header("Location: login.php"); exit; }
 if ($_SESSION['role'] !== 'admin_master') { header("Location: dashboard.php"); exit; }
 
