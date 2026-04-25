@@ -6,7 +6,6 @@
  * akan diarahkan ke login.php.
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 
 // ── GATE: wajib login ────────────────────────────────────────
