@@ -2,7 +2,6 @@
 /**
  * Server/session_db.php
  * Custom session handler — simpan session di TiDB Cloud
- * Kompatibel dengan Vercel (serverless, HTTPS)
  */
 
 class DbSessionHandler implements SessionHandlerInterface
@@ -31,7 +30,7 @@ class DbSessionHandler implements SessionHandlerInterface
             "SELECT data FROM php_sessions WHERE id='$id' AND expires > NOW() LIMIT 1"
         );
         if ($res && $res->num_rows > 0) {
-            return $res->fetch_assoc()['data'];
+            return (string)$res->fetch_assoc()['data'];
         }
         return '';
     }
@@ -40,13 +39,14 @@ class DbSessionHandler implements SessionHandlerInterface
     {
         $id      = $this->db->real_escape_string($id);
         $data    = $this->db->real_escape_string($data);
-        $expires = date('Y-m-d H:i:s', time() + 7200); // 2 jam
-        $this->db->query(
-            "INSERT INTO php_sessions (id, data, expires)
-             VALUES ('$id', '$data', '$expires')
-             ON DUPLICATE KEY UPDATE data='$data', expires='$expires'"
-        );
-        return true;
+        $expires = date('Y-m-d H:i:s', time() + 7200);
+
+        $sql = "INSERT INTO php_sessions (id, data, expires)
+                VALUES ('$id', '$data', '$expires')
+                ON DUPLICATE KEY UPDATE data='$data', expires='$expires'";
+
+        $result = $this->db->query($sql);
+        return $result !== false;
     }
 
     public function destroy(string $id): bool
@@ -68,18 +68,24 @@ function startDbSession(mysqli $conn): void
     $handler = new DbSessionHandler($conn);
     session_set_save_handler($handler, true);
 
-    // Cookie setting yang kompatibel dengan Vercel HTTPS
     session_set_cookie_params([
         'lifetime' => 7200,
         'path'     => '/',
         'domain'   => '',
-        'secure'   => true,  // wajib karena Vercel pakai HTTPS
+        'secure'   => true,
         'httponly' => true,
         'samesite' => 'Lax'
     ]);
 
-    // Pastikan belum ada session aktif sebelum start
+    ini_set('session.gc_maxlifetime', 7200);
+
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
+
+    // Force write session ke DB sekarang juga
+    session_write_close();
+
+    // Buka lagi supaya $_SESSION bisa dibaca/ditulis di request ini
+    session_start();
 }
