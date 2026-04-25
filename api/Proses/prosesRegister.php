@@ -8,7 +8,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 session_start();
-require_once '../Server/koneksi.php';
+require_once __DIR__ . '/../Server/koneksi.php';
 
 // Mode no-DB: redirect dengan pesan
 if ($conn === null) {
