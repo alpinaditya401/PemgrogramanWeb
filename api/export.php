@@ -12,7 +12,6 @@
  *   ?nama=X             → filter berdasarkan nama komoditas (opsional)
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 cekLogin();
 
