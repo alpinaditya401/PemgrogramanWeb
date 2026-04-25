@@ -10,7 +10,6 @@
  *   info      → Info SMS, email, kontak dari admin
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 cekLogin();
 cekRole(['user', 'kontributor']);
