@@ -65,6 +65,11 @@ class DbSessionHandler implements SessionHandlerInterface
 
 function startDbSession(mysqli $conn): void
 {
+    // Jangan start ulang kalau sudah aktif
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        return;
+    }
+
     $handler = new DbSessionHandler($conn);
     session_set_save_handler($handler, true);
 
@@ -79,13 +84,6 @@ function startDbSession(mysqli $conn): void
 
     ini_set('session.gc_maxlifetime', 7200);
 
-    if (session_status() === PHP_SESSION_NONE) {
-        session_start();
-    }
-
-    // Force write session ke DB sekarang juga
-    session_write_close();
-
-    // Buka lagi supaya $_SESSION bisa dibaca/ditulis di request ini
+    // ✅ PERBAIKAN: Hanya session_start() SEKALI — tidak double start/close
     session_start();
 }

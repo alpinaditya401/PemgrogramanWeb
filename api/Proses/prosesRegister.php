@@ -62,37 +62,27 @@ $hash = password_hash($password, PASSWORD_DEFAULT);
 $tgl = $tgl_lahir ? "'$tgl_lahir'" : 'NULL';
 
 // Simpan ke database
-$conn->query(
-    "INSERT INTO users (email, username, password, nama_lengkap, tgl_lahir, telepon, role)
-     VALUES ('$email','$username','$hash','$nama',$tgl,'$telepon','$role')"
+$insertOk = $conn->query(
+    "INSERT INTO users (email, username, password, nama_lengkap, tgl_lahir, telepon, role, is_active)
+     VALUES ('$email','$username','$hash','$nama',$tgl,'$telepon','$role', 1)"
 );
+
+// Jika insert gagal, redirect dengan error
+if (!$insertOk || $conn->insert_id === 0) {
+    redirect('/register.php?error=db_error&detail=' . urlencode($conn->error));
+}
 
 $newId = (int)$conn->insert_id;
 
-// Simpan juga provinsi & kota ke profil jika ada kolom — atau ke session
-// (jika tabel users belum punya kolom provinsi, kita simpan di session saja)
-// Cek apakah kolom provinsi ada di tabel users
+// Simpan provinsi jika kolom ada
 $hasProvinsiCol = false;
 $checkCol = $conn->query("SHOW COLUMNS FROM users LIKE 'provinsi'");
 if ($checkCol && $checkCol->num_rows > 0) $hasProvinsiCol = true;
 
 if ($hasProvinsiCol && ($provinsi || $kota)) {
-    $kotaLokasi = $kota ?: $provinsi;
     $conn->query("UPDATE users SET provinsi='$provinsi' WHERE id=$newId");
 }
 
-// Auto-login setelah daftar
-session_regenerate_id(true);
-$_SESSION['login']    = true;
-$_SESSION['user_id']  = $newId;
-$_SESSION['username'] = $username;
-$_SESSION['role']     = $role;
-$_SESSION['provinsi'] = $provinsi; // simpan di session untuk prefill form
-$_SESSION['kota']     = $kota;
-
-// Redirect sesuai role
-if ($role === 'kontributor') {
-    redirect('/dashboard-user.php?tab=laporan&welcome=1');
-} else {
-    redirect('/dashboard-user.php?welcome=1');
-}
+// ✅ PERBAIKAN: Setelah daftar, TIDAK auto-login, langsung redirect ke halaman login
+// dengan pesan sukses agar user login manual
+redirect('/login.php?pesan=register_sukses');

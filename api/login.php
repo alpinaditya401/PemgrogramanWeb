@@ -96,6 +96,22 @@ body {
         Username atau password salah. Sisa percobaan: <strong><?= $sisaCoba ?></strong>.
       </div>
     </div>
+    <?php elseif ($pesanUrl === 'register_sukses'): ?>
+    <div class="mb-5 msg-success flex items-start gap-3" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:0.5rem;padding:0.75rem;">
+      <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5"></i>
+      <div>
+        <strong>Pendaftaran Berhasil!</strong><br/>
+        <span class="text-xs">Akun kamu sudah dibuat. Silakan login untuk melanjutkan.</span>
+      </div>
+    </div>
+    <?php elseif ($pesanUrl === 'logout'): ?>
+    <div class="mb-5 msg-success flex items-start gap-3" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:0.5rem;padding:0.75rem;">
+      <i data-lucide="log-out" class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5"></i>
+      <div>
+        <strong>Logout Berhasil</strong><br/>
+        <span class="text-xs">Kamu telah keluar dari akun.</span>
+      </div>
+    </div>
     <?php endif; ?>
 
       <form action="Proses/prosesLogin.php" method="POST" novalidate>
