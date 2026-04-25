@@ -256,7 +256,7 @@ $activeNav = 'chart';
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/js/scripts.js"></script>
 <script>
 lucide.createIcons();
 
