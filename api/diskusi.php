@@ -480,7 +480,7 @@ document.getElementById('mainInput')?.addEventListener('keydown', function(e) {
 muatKomentar();
 </script>
 
-<script src="/Assets/scripts.js"></script>
+<script src="/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

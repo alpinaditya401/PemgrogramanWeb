@@ -57,6 +57,6 @@ $satuans   = ['kg','gram','liter','ml','butir','ikat','buah'];
       </form>
     </div>
   </div>
-<script src="/Assets/scripts.js"></script><script>lucide.createIcons();</script>
+<script src="/scripts.js"></script><script>lucide.createIcons();</script>
 </body>
 </html>

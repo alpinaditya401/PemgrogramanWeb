@@ -461,7 +461,7 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
 <script>
 const masterChartData = <?= json_encode(array_map(fn($r)=>['nama'=>$r['nama'],'lokasi'=>$r['lokasi'],'history'=>json_decode($r['history']??'[]',true)],$mChartRows??[]),JSON_UNESCAPED_UNICODE) ?>;
 </script>
-<script src="/Assets/scripts.js"></script>
+<script src="/scripts.js"></script>
 <script>
 lucide.createIcons();
 

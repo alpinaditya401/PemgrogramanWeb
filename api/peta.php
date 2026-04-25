@@ -446,7 +446,7 @@ $pageTitle = 'Peta Harga ' . htmlspecialchars($selKom ?: 'Komoditas');
     <!-- D3.js + TopoJSON dari CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-    <script src="/Assets/scripts.js"></script>
+    <script src="/scripts.js"></script>
     <script>
         lucide.createIcons();
 

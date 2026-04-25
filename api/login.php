@@ -164,7 +164,7 @@ body {
     <p class="text-center text-xs text-[var(--text-muted)] mt-5">&copy; <?= date('Y') ?> InfoHarga Komoditi</p>
   </div>
 
-<script src="/Assets/scripts.js"></script>
+<script src="/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

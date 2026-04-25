@@ -297,7 +297,7 @@ $activeNav = 'artikel';
     </div>
 
     <?php include __DIR__ . '/Assets/footer.php'; ?>
-    <script src="/Assets/scripts.js"></script>
+    <script src="/scripts.js"></script>
     <script>
         lucide.createIcons();
     </script>
