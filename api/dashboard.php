@@ -11,7 +11,8 @@
  *   settings    → Pengaturan sistem (KHUSUS admin_master)
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 cekRole(['admin','admin_master']);
 
@@ -105,7 +106,7 @@ $pageTitle  = 'Dashboard Admin';
 ?>
 <!doctype html>
 <html lang="id">
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   body { overflow:hidden; }
   .admin-wrap { display:flex; height:100vh; }
@@ -597,7 +598,7 @@ const chartData = <?= json_encode(array_map(fn($r)=>['nama'=>$r['nama'],'lokasi'
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 

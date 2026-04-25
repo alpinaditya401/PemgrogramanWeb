@@ -8,7 +8,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 session_start();
-require_once __DIR__ . '/../Server/koneksi.php';
+require __DIR__ . '/../Server/koneksi.php';
 
 // Guard: hanya admin_master
 if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'admin_master') {

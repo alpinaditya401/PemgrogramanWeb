@@ -10,7 +10,8 @@
  *   (tanpa param)    → diskusi umum semua komoditas
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 
 $uid       = (int)$_SESSION['user_id'];
@@ -43,7 +44,7 @@ $dashBack  = in_array($role,['admin','admin_master']) ? 'dashboard.php' : 'dashb
 ?>
 <!doctype html>
 <html lang="id">
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   body{overflow:hidden}
   .dsk-wrap{display:flex;height:100vh}
@@ -480,7 +481,7 @@ document.getElementById('mainInput')?.addEventListener('keydown', function(e) {
 muatKomentar();
 </script>
 
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

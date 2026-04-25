@@ -1,5 +1,6 @@
 <?php
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin(); cekRole(['admin','admin_master']);
 
 if (!isset($_GET['id'])) redirect('dashboard.php');
@@ -29,7 +30,7 @@ $satuans   = ['kg','gram','liter','ml','butir','ikat','buah'];
 ?>
 <!doctype html>
 <html lang="id">
-<head><?php include 'Assets/head.php'; ?></head>
+<head><?php include __DIR__ . '/Assets/head.php'; ?></head>
 <body class="min-h-screen flex items-center justify-center p-4" style="background:radial-gradient(ellipse 70% 60% at 30% 40%,rgba(16,185,129,.06) 0%,transparent 55%)">
   <a href="dashboard.php" class="fixed top-5 left-5 flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition group"><i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"></i> Dashboard</a>
   <button data-action="toggle-theme" class="fixed top-5 right-5 w-9 h-9 flex items-center justify-center rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"><i data-lucide="moon" data-theme-icon="toggle" class="w-4 h-4"></i></button>
@@ -57,6 +58,6 @@ $satuans   = ['kg','gram','liter','ml','butir','ikat','buah'];
       </form>
     </div>
   </div>
-<script src="Assets/scripts.js"></script><script>lucide.createIcons();</script>
+<script src="/Assets/scripts.js"></script><script>lucide.createIcons();</script>
 </body>
 </html>

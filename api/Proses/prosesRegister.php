@@ -7,6 +7,7 @@
  * (Admin/admin_master hanya bisa dibuat oleh admin_master)
  * ─────────────────────────────────────────────────────────────
  */
+session_start();
 require_once __DIR__ . '/../Server/koneksi.php';
 
 // Mode no-DB: redirect dengan pesan

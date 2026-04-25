@@ -3,7 +3,7 @@
  * Proses/prosesSetting.php — Admin Master simpan pengaturan sistem
  */
 session_start();
-require_once __DIR__ . '/../Server/koneksi.php';
+require __DIR__ . '/../Server/koneksi.php';
 if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'admin_master') redirect('../login.php');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('../dashboard.php?tab=settings');

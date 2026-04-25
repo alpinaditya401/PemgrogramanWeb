@@ -4,7 +4,7 @@
  * Mendukung: tambah, edit, hapus, toggle publish, fetch dari URL
  */
 session_start();
-require_once __DIR__ . '/../Server/koneksi.php';
+require __DIR__ . '/../Server/koneksi.php';
 if (!isset($_SESSION['login']) || !in_array($_SESSION['role'],['admin','admin_master'])) redirect('../login.php');
 
 $aksi = $_POST['aksi'] ?? $_GET['aksi'] ?? '';

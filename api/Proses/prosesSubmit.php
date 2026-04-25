@@ -4,7 +4,7 @@
  * Kontributor kirim laporan harga → status pending, menunggu verifikasi admin
  */
 session_start();
-require_once __DIR__ . '/../Server/koneksi.php';
+require __DIR__ . '/../Server/koneksi.php';
 
 if (!isset($_SESSION['login'])) redirect('../login.php');
 if ($_SESSION['role'] !== 'kontributor') redirect('../dashboard-user.php');

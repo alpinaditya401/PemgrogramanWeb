@@ -2,7 +2,8 @@
 /**
  * login.php — Halaman Login
  */
-require_once 'Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
+session_start();
+require_once __DIR__ . '/Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
 
 if (isset($_SESSION['login']) && $_SESSION['login'] === true) {
     $dest = in_array($_SESSION['role'], ['admin','admin_master']) ? 'dashboard.php' : 'dashboard-user.php';
@@ -15,7 +16,7 @@ $pageDesc  = 'Masuk ke panel InfoHarga Komoditi.';
 <!doctype html>
 <html lang="id">
 <head>
-<?php include 'Assets/head.php'; ?>
+<?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
 /*
  * FIX DARK MODE BACKGROUND:
@@ -164,7 +165,7 @@ body {
     <p class="text-center text-xs text-[var(--text-muted)] mt-5">&copy; <?= date('Y') ?> InfoHarga Komoditi</p>
   </div>
 
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

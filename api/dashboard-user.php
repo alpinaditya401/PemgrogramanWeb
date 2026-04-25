@@ -10,7 +10,8 @@
  *   info      → Info SMS, email, kontak dari admin
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 cekRole(['user', 'kontributor']);
 
@@ -118,7 +119,7 @@ $pageTitle = 'Dashboard';
 <!doctype html>
 <html lang="id">
 
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
     <style>
         .dash-wrap {
             display: flex;
@@ -919,7 +920,7 @@ $pageTitle = 'Dashboard';
     <script>
         window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     </script>
-    <script src="Assets/scripts.js"></script>
+    <script src="/Assets/scripts.js"></script>
     <script>
         lucide.createIcons();
 

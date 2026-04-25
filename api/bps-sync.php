@@ -11,11 +11,12 @@
  * 4. Log hasil sinkronisasi
  * ─────────────────────────────────────────────────────────────
  */
+session_start();
 if (!isset($_SESSION['login'])) { header("Location: login.php"); exit; }
 if ($_SESSION['role'] !== 'admin_master') { header("Location: dashboard.php"); exit; }
 
-require 'Server/koneksi.php';
-require_once 'Server/bps_api.php';
+require __DIR__ . '/Server/koneksi.php';
+require_once __DIR__ . '/Server/bps_api.php';
 
 $pageTitle = 'Sinkronisasi Data BPS';
 $bps       = new BPS_API(BPS_API_KEY);
@@ -98,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_all'])) {
 ?>
 <!doctype html>
 <html lang="id">
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   body{font-family:'Instrument Sans',sans-serif;}
   .prov-card{transition:border-color .15s,background .15s;}
@@ -322,7 +323,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_all'])) {
 
 </div><!-- end container -->
 
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

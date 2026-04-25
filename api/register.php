@@ -2,7 +2,8 @@
 /**
  * register.php — Halaman Register
  */
-require_once 'Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
+session_start();
+require_once __DIR__ . '/Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
 
 if (isset($_SESSION['login']) && $_SESSION['login'] === true) {
     redirect('dashboard-user.php');
@@ -14,7 +15,7 @@ $pageDesc  = 'Buat akun baru di InfoHarga Komoditi.';
 <!doctype html>
 <html lang="id">
 <head>
-<?php include 'Assets/head.php'; ?>
+<?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
 /*
  * FIX DARK MODE BACKGROUND — sama seperti login.php
@@ -315,7 +316,7 @@ input[type="radio"] { display: none; }
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 

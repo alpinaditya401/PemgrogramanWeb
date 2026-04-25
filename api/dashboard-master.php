@@ -4,14 +4,15 @@
  * Hanya role: admin_master
  * Tab: users (kelola + HAPUS), bps (API BPS), settings (pengaturan)
  */
+session_start();
 if (!isset($_SESSION['login'])) { header("Location: login.php"); exit; }
 if ($_SESSION['role'] !== 'admin_master') {
     header("Location: " . ($_SESSION['role']==='admin' ? 'dashboard.php' : 'dashboard-user.php'));
     exit;
 }
 
-require 'Server/koneksi.php';
-require_once 'Server/bps_api.php';
+require __DIR__ . '/Server/koneksi.php';
+require_once __DIR__ . '/Server/bps_api.php';
 
 $myId      = (int)$_SESSION['user_id'];
 $myName    = htmlspecialchars($_SESSION['username']);
@@ -123,7 +124,7 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
 <!doctype html>
 <html lang="id">
 <head>
-<?php include 'Assets/head.php'; ?>
+<?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   body{overflow:hidden;}
   .mwrap{display:flex;height:100vh;}
@@ -461,7 +462,7 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
 <script>
 const masterChartData = <?= json_encode(array_map(fn($r)=>['nama'=>$r['nama'],'lokasi'=>$r['lokasi'],'history'=>json_decode($r['history']??'[]',true)],$mChartRows??[]),JSON_UNESCAPED_UNICODE) ?>;
 </script>
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 

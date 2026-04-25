@@ -6,7 +6,8 @@
  * akan diarahkan ke login.php.
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 
 // ── GATE: wajib login ────────────────────────────────────────
 if (!isset($_SESSION['login']) || $_SESSION['login'] !== true) {
@@ -54,7 +55,7 @@ $activeNav = 'chart';
 ?>
 <!doctype html>
 <html lang="id">
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   .filter-card:focus-within { box-shadow:0 0 0 2px rgba(16,185,129,.25); }
   #chartWrapper { position:relative; width:100%; height:300px; }
@@ -62,7 +63,7 @@ $activeNav = 'chart';
 </head>
 <body>
 <div class="h-9 bg-[var(--bg-secondary)] border-b border-[var(--border)]"></div>
-<?php include 'Assets/navbar.php'; ?>
+<?php include __DIR__ . '/Assets/navbar.php'; ?>
 
 <!-- PAGE HEADER -->
 <div class="pt-28 pb-8 bg-[var(--bg-secondary)] border-b border-[var(--border)]">
@@ -251,12 +252,12 @@ $activeNav = 'chart';
   <?php endif; ?>
 </div>
 
-<?php include 'Assets/footer.php'; ?>
+<?php include __DIR__ . '/Assets/footer.php'; ?>
 
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="/Assets/js/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 

@@ -7,7 +7,8 @@
  * Setiap kunjungan ke halaman ini menaikkan kolom 'views'.
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 
 // Ambil slug dari URL, sanitasi
 $slug = esc($conn, $_GET['slug'] ?? '');
@@ -52,7 +53,7 @@ $activeNav = 'artikel';
 <html lang="id" class="scroll-smooth">
 
 <head>
-    <?php include 'Assets/head.php'; ?>
+    <?php include __DIR__ . '/Assets/head.php'; ?>
     <style>
         /* Prose styling untuk konten artikel */
         .prose p {
@@ -135,7 +136,7 @@ $activeNav = 'artikel';
         </div>
     </div>
 
-    <?php include 'Assets/navbar.php'; ?>
+    <?php include __DIR__ . '/Assets/navbar.php'; ?>
 
     <!-- BREADCRUMB + HEADER -->
     <div class="pt-28 pb-8 bg-[var(--bg-secondary)] border-b border-[var(--border)]">
@@ -296,8 +297,8 @@ $activeNav = 'artikel';
         </div>
     </div>
 
-    <?php include 'Assets/footer.php'; ?>
-    <script src="Assets/scripts.js"></script>
+    <?php include __DIR__ . '/Assets/footer.php'; ?>
+    <script src="/Assets/scripts.js"></script>
     <script>
         lucide.createIcons();
     </script>

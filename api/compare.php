@@ -12,7 +12,8 @@
  *   → 4 garis di satu grafik, masing-masing mewakili satu kota
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 
 // ── DAFTAR KOMODITAS yang tersedia ────────────────────────────
@@ -89,7 +90,7 @@ $pageTitle = 'Perbandingan Harga Antar Kota';
 <!doctype html>
 <html lang="id">
 
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
     <style>
     body {
         overflow: hidden
@@ -533,7 +534,7 @@ $pageTitle = 'Perbandingan Harga Antar Kota';
     </script>
     <?php endif; ?>
 
-    <script src="Assets/scripts.js"></script>
+    <script src="/Assets/scripts.js"></script>
     <script>
     lucide.createIcons();
     <?php if (!empty($chartDatasets)): ?>

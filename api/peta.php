@@ -6,7 +6,8 @@
  * Memetakan nama provinsi Indonesia → nama dalam TopoJSON (Inggris)
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 
 $resNama = $conn->query("SELECT DISTINCT nama FROM komoditas WHERE status='approved' ORDER BY nama ASC");
@@ -60,7 +61,7 @@ $pageTitle = 'Peta Harga ' . htmlspecialchars($selKom ?: 'Komoditas');
 <!doctype html>
 <html lang="id">
 
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
     <style>
         body {
             overflow: hidden
@@ -446,7 +447,7 @@ $pageTitle = 'Peta Harga ' . htmlspecialchars($selKom ?: 'Komoditas');
     <!-- D3.js + TopoJSON dari CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-    <script src="Assets/scripts.js"></script>
+    <script src="/Assets/scripts.js"></script>
     <script>
         lucide.createIcons();
 

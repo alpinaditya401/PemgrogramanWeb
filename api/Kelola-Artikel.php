@@ -2,7 +2,8 @@
 /**
  * kelola-artikel.php — Manajemen Artikel Edukasi & Berita (CRUD & Scraping)
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 
 // 1. KEAMANAN: Hanya Admin dan Admin Master yang bisa mengakses halaman ini
 if (!isset($_SESSION['login']) || ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'admin_master')) {
@@ -83,13 +84,13 @@ $result = mysqli_query($conn, "SELECT a.*, u.nama as penulis FROM artikel a LEFT
 <head>
     <?php
     $pageTitle = "Kelola Artikel & Edukasi";
-    include 'Assets/head.php';
+    include __DIR__ . '/Assets/head.php';
     ?>
 </head>
 
 <body class="bg-[var(--bg-secondary)] text-[var(--text-primary)]">
 
-    <?php include 'Assets/navbar.php'; ?>
+    <?php include __DIR__ . '/Assets/navbar.php'; ?>
 
     <div class="flex min-h-screen pt-24">
         <aside class="w-64 hidden lg:block border-r border-[var(--border)] p-6 space-y-2">
@@ -256,7 +257,7 @@ $result = mysqli_query($conn, "SELECT a.*, u.nama as penulis FROM artikel a LEFT
         </main>
     </div>
 
-    <script src="Assets/scripts.js"></script>
+    <script src="/Assets/scripts.js"></script>
     <script>
         lucide.createIcons();
     </script>

@@ -6,7 +6,8 @@
  * Parameter: ?u=username  ATAU  ?id=user_id
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 
 $myUid = (int)$_SESSION['user_id'];
@@ -63,7 +64,7 @@ $pageTitle = 'Profil '.htmlspecialchars($user['username']);
 ?>
 <!doctype html>
 <html lang="id">
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   .prof-cover{height:120px;background:linear-gradient(135deg,#059669 0%,#0891b2 100%);border-radius:1rem 1rem 0 0;position:relative}
   .avatar-xl{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-family:'Cabinet Grotesk',sans-serif;font-size:2rem;font-weight:900;color:#fff;border:4px solid var(--bg-primary);position:absolute;bottom:-40px;left:1.5rem}
@@ -260,7 +261,7 @@ $pageTitle = 'Profil '.htmlspecialchars($user['username']);
 
 </div>
 
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

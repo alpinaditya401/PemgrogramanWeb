@@ -2,7 +2,8 @@
 /**
  * pusat-informasi.php — Pengaturan Pengumuman Global & API Gateway
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 
 // 1. KEAMANAN SANGAT KETAT: Hanya Admin Master yang boleh mengakses konfigurasi API
 if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'admin_master') {
@@ -91,12 +92,12 @@ $email_config = $data_email ? json_decode($data_email['isi_data'], true) : ['hos
 <head>
     <?php 
     $pageTitle = "Pusat Informasi & Gateway";
-    include 'Assets/head.php'; 
+    include __DIR__ . '/Assets/head.php'; 
     ?>
 </head>
 <body class="bg-[var(--bg-secondary)] text-[var(--text-primary)]">
 
-    <?php include 'Assets/navbar.php'; ?>
+    <?php include __DIR__ . '/Assets/navbar.php'; ?>
 
     <div class="flex min-h-screen pt-24">
         <aside class="w-64 hidden lg:block border-r border-[var(--border)] p-6 space-y-2">
@@ -245,7 +246,7 @@ $email_config = $data_email ? json_decode($data_email['isi_data'], true) : ['hos
         </main>
     </div>
 
-    <script src="Assets/scripts.js"></script>
+    <script src="/Assets/scripts.js"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>

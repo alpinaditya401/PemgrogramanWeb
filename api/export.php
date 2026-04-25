@@ -12,7 +12,8 @@
  *   ?nama=X             → filter berdasarkan nama komoditas (opsional)
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 
 $type     = $_GET['type']     ?? 'komoditas';

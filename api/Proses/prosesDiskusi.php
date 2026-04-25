@@ -10,7 +10,7 @@
  * ─────────────────────────────────────────────────────────────
  */
 session_start();
-require_once __DIR__ . '/../Server/koneksi.php';
+require __DIR__ . '/../Server/koneksi.php';
 cekLogin();
 
 header('Content-Type: application/json; charset=utf-8');

@@ -10,8 +10,9 @@
  *   4. Lihat statistik akun (tanggal daftar, login terakhir, total laporan)
  * ─────────────────────────────────────────────────────────────
  */
-require 'Server/koneksi.php';
-require_once 'Server/bps_api.php';
+session_start();
+require __DIR__ . '/Server/koneksi.php';
+require_once __DIR__ . '/Server/bps_api.php';
 cekLogin();
 
 $uid      = (int)$_SESSION['user_id'];
@@ -135,7 +136,7 @@ $pageTitle = 'Profil Saya';
 ?>
 <!doctype html>
 <html lang="id">
-<head><?php include 'Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   body{overflow:hidden}
   .prof-wrap{display:flex;height:100vh}
@@ -390,7 +391,7 @@ $pageTitle = 'Profil Saya';
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="Assets/scripts.js"></script>
+<script src="/Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 // Province-city cascade for profil form
