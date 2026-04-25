@@ -4,46 +4,20 @@
       "runtime": "vercel-php@0.7.1"
     }
   },
-  "routes": [
+  "headers": [
     {
-      "src": "/Assets/(.+)",
-      "dest": "/api/Assets/$1",
-      "headers": {
-        "x-vercel-skip-middleware": "1"
-      },
-      "continue": false
-    },
-    {
-      "src": "/uploads/(.*)",
-      "dest": "/api/uploads/$1"
-    },
-    {
-      "src": "/",
-      "dest": "/api/index.php"
-    },
-    {
-      "src": "/index.php",
-      "dest": "/api/index.php"
-    },
-    {
-      "src": "/Proses/(.*)\\.php(.*)",
-      "dest": "/api/Proses/$1.php$2"
-    },
-    {
-      "src": "/api/Proses/(.*)\\.php(.*)",
-      "dest": "/api/Proses/$1.php$2"
-    },
-    {
-      "src": "/api/([^/]+\\.php)(.*)",
-      "dest": "/api/$1$2"
-    },
-    {
-      "src": "/([^/]+\\.php)(.*)",
-      "dest": "/api/$1$2"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
+      "source": "/Assets/(.*)",
+      "headers": [
+        { "key": "Content-Type", "value": "application/octet-stream" }
+      ]
     }
+  ],
+  "rewrites": [
+    { "source": "/Assets/(.*)", "destination": "/api/Assets/$1" },
+    { "source": "/uploads/(.*)", "destination": "/api/uploads/$1" },
+    { "source": "/", "destination": "/api/index.php" },
+    { "source": "/index.php", "destination": "/api/index.php" },
+    { "source": "/Proses/:path*.php", "destination": "/api/Proses/:path*.php" },
+    { "source": "/:path*.php", "destination": "/api/:path*.php" }
   ]
 }
