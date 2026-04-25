@@ -2,7 +2,6 @@
 /**
  * kelola-artikel.php — Manajemen Artikel Edukasi & Berita (CRUD & Scraping)
  */
-session_start();
 require 'Server/koneksi.php';
 
 // 1. KEAMANAN: Hanya Admin dan Admin Master yang bisa mengakses halaman ini
