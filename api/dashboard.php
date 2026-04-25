@@ -11,7 +11,6 @@
  *   settings    → Pengaturan sistem (KHUSUS admin_master)
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require 'Server/koneksi.php';
 cekLogin();
 cekRole(['admin','admin_master']);
