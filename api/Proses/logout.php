@@ -2,7 +2,6 @@
 /**
  * Proses/logout.php — Hancurkan session dan redirect ke login
  */
-session_start();
 $_SESSION = [];
 if (ini_get('session.use_cookies')) {
     $p = session_get_cookie_params();
