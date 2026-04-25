@@ -3,7 +3,6 @@
  * index.php — Halaman Publik Utama InfoHarga Komoditi
  * MODE: No Database (data dummy statis)
  */
-session_start();
 
 $pageTitle = 'Transparansi Harga Pangan Indonesia';
 $pageDesc  = 'Pantau harga komoditas pangan terkini dari 38 provinsi Indonesia. Data beras, cabai, bawang, minyak goreng secara real-time.';
