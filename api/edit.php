@@ -1,5 +1,4 @@
 <?php
-session_start();
 require __DIR__ . '/Server/koneksi.php';
 cekLogin(); cekRole(['admin','admin_master']);
 

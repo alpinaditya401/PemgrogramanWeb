@@ -10,7 +10,6 @@
  *   4. Lihat statistik akun (tanggal daftar, login terakhir, total laporan)
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require __DIR__ . '/Server/koneksi.php';
 require_once __DIR__ . '/Server/bps_api.php';
 cekLogin();

@@ -12,7 +12,6 @@
  *   → 4 garis di satu grafik, masing-masing mewakili satu kota
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 

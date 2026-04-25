@@ -2,11 +2,10 @@
 /**
  * Proses/prosesSetting.php — Admin Master simpan pengaturan sistem
  */
-session_start();
 require __DIR__ . '/../Server/koneksi.php';
-if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'admin_master') redirect('../login.php');
+if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'admin_master') redirect('/login.php');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('../dashboard.php?tab=settings');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('/dashboard.php?tab=settings');
 
 // Loop semua field yang dikirim dari form settings
 foreach ($_POST as $kunci => $nilai) {
@@ -16,4 +15,4 @@ foreach ($_POST as $kunci => $nilai) {
     $conn->query("UPDATE pengaturan_sistem SET nilai='$v' WHERE kunci='$k'");
 }
 
-redirect('../dashboard.php?tab=settings&success=setting_saved');
+redirect('/dashboard.php?tab=settings&success=setting_saved');

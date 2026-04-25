@@ -3,17 +3,16 @@
  * Proses/prosesLogin.php
  * Mode: No Database — tampilkan pesan informatif
  */
-session_start();
 require_once __DIR__ . '/../Server/koneksi.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect('../login.php');
+    redirect('/login.php');
 }
 
 // Cek apakah DB tersedia ($conn bukan null)
 if ($conn === null) {
     // Mode no-DB: redirect ke login dengan pesan
-    redirect('../login.php?pesan=nodb');
+    redirect('/login.php?pesan=nodb');
 }
 
 // ── Ada DB: proses login normal ──────────────────────────────
@@ -21,7 +20,7 @@ $username = esc($conn, trim($_POST['username'] ?? ''));
 $password = trim($_POST['password'] ?? '');
 $ip       = esc($conn, $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
 
-if (!$username || !$password) redirect('../login.php?pesan=empty');
+if (!$username || !$password) redirect('/login.php?pesan=empty');
 
 $res = $conn->query("SELECT id, username, password, role, is_active,
                             COALESCE(login_attempts,0) as login_attempts,
@@ -29,18 +28,18 @@ $res = $conn->query("SELECT id, username, password, role, is_active,
                      FROM users WHERE username='$username' LIMIT 1");
 
 if (!$res || $res->num_rows === 0) {
-    redirect('../login.php?pesan=gagal');
+    redirect('/login.php?pesan=gagal');
 }
 
 $u = $res->fetch_assoc();
 
-if (!$u['is_active']) redirect('../login.php?pesan=nonaktif');
+if (!$u['is_active']) redirect('/login.php?pesan=nonaktif');
 
 if (!empty($u['locked_until'])) {
     $lockedUntil = strtotime($u['locked_until']);
     if ($lockedUntil > time()) {
         $menitSisa = ceil(($lockedUntil - time()) / 60);
-        redirect('../login.php?pesan=locked&menit='.$menitSisa);
+        redirect('/login.php?pesan=locked&menit='.$menitSisa);
     } else {
         $conn->query("UPDATE users SET login_attempts=0, locked_until=NULL WHERE id={$u['id']}");
     }
@@ -55,9 +54,9 @@ if (password_verify($password, $u['password'])) {
     $_SESSION['role']     = $u['role'];
 
     $dest = match($u['role']) {
-        'admin_master', 'admin' => '../dashboard.php',
-        'kontributor'           => '../dashboard-user.php?tab=laporan',
-        default                 => '../dashboard-user.php',
+        'admin_master', 'admin' => '/dashboard.php',
+        'kontributor'           => '/dashboard-user.php?tab=laporan',
+        default                 => '/dashboard-user.php',
     };
     redirect($dest);
 } else {
@@ -67,10 +66,10 @@ if (password_verify($password, $u['password'])) {
     if ($attempts >= $maxTry) {
         $lockedUntil = date('Y-m-d H:i:s', time() + ($lockMin * 60));
         $conn->query("UPDATE users SET login_attempts=$attempts, locked_until='$lockedUntil' WHERE id={$u['id']}");
-        redirect('../login.php?pesan=locked&menit='.$lockMin);
+        redirect('/login.php?pesan=locked&menit='.$lockMin);
     } else {
         $sisaCoba = $maxTry - $attempts;
         $conn->query("UPDATE users SET login_attempts=$attempts WHERE id={$u['id']}");
-        redirect('../login.php?pesan=gagal&sisa='.$sisaCoba);
+        redirect('/login.php?pesan=gagal&sisa='.$sisaCoba);
     }
 }

@@ -10,7 +10,6 @@
  *   (tanpa param)    → diskusi umum semua komoditas
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require __DIR__ . '/Server/koneksi.php';
 cekLogin();
 

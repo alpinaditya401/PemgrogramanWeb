@@ -2,7 +2,6 @@
 /**
  * register.php — Halaman Register
  */
-session_start();
 require_once __DIR__ . '/Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
 
 if (isset($_SESSION['login']) && $_SESSION['login'] === true) {

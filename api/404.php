@@ -7,7 +7,6 @@
  *   ErrorDocument 404 /InfoHargaa/404.php
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 // Set HTTP response code 404 agar mesin pencari tidak index halaman ini
 http_response_code(404);
 

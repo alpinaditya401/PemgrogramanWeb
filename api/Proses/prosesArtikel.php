@@ -3,9 +3,8 @@
  * Proses/prosesArtikel.php — CRUD Artikel oleh Admin/Admin Master
  * Mendukung: tambah, edit, hapus, toggle publish, fetch dari URL
  */
-session_start();
 require __DIR__ . '/../Server/koneksi.php';
-if (!isset($_SESSION['login']) || !in_array($_SESSION['role'],['admin','admin_master'])) redirect('../login.php');
+if (!isset($_SESSION['login']) || !in_array($_SESSION['role'],['admin','admin_master'])) redirect('/login.php');
 
 $aksi = $_POST['aksi'] ?? $_GET['aksi'] ?? '';
 $uid  = (int)$_SESSION['user_id'];
@@ -14,7 +13,7 @@ $uid  = (int)$_SESSION['user_id'];
 if ($aksi === 'hapus' && isset($_GET['id'])) {
     $id = (int)$_GET['id'];
     $conn->query("DELETE FROM artikel WHERE id=$id");
-    redirect('../dashboard.php?tab=artikel&success=deleted');
+    redirect('/dashboard.php?tab=artikel&success=deleted');
 }
 
 // ── TOGGLE PUBLISH ─────────────────────────────────────────────
@@ -25,10 +24,10 @@ if ($aksi === 'toggle' && isset($_GET['id'])) {
         $baru = $row['is_publish'] ? 0 : 1;
         $conn->query("UPDATE artikel SET is_publish=$baru WHERE id=$id");
     }
-    redirect('../dashboard.php?tab=artikel&success=updated');
+    redirect('/dashboard.php?tab=artikel&success=updated');
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('../dashboard.php?tab=artikel');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('/dashboard.php?tab=artikel');
 
 // ── TAMBAH / EDIT ─────────────────────────────────────────────
 $id        = (int)($_POST['id'] ?? 0);
@@ -42,7 +41,7 @@ $sumber    = esc($conn, $_POST['sumber_url'] ?? '');
 $sumber_nm = esc($conn, $_POST['sumber_nama'] ?? '');
 $publish   = isset($_POST['is_publish']) ? 1 : 0;
 
-if (!$judul) redirect('../dashboard.php?tab=artikel&error=empty');
+if (!$judul) redirect('/dashboard.php?tab=artikel&error=empty');
 
 // Buat slug unik
 $slug_base = slugify($judul);
@@ -94,4 +93,4 @@ if ($id) {
                   VALUES ('$judul','$slug','$ringkasan','$konten','$kategori','$emoji',$menit,'$sumber','$sumber_nm',$uid,$publish)");
 }
 
-redirect('../dashboard.php?tab=artikel&success=artikel_saved');
+redirect('/dashboard.php?tab=artikel&success=artikel_saved');

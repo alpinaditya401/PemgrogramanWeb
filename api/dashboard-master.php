@@ -4,7 +4,6 @@
  * Hanya role: admin_master
  * Tab: users (kelola + HAPUS), bps (API BPS), settings (pengaturan)
  */
-session_start();
 if (!isset($_SESSION['login'])) { header("Location: login.php"); exit; }
 if ($_SESSION['role'] !== 'admin_master') {
     header("Location: " . ($_SESSION['role']==='admin' ? 'dashboard.php' : 'dashboard-user.php'));

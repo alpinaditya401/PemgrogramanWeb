@@ -7,15 +7,14 @@
  * (Admin/admin_master hanya bisa dibuat oleh admin_master)
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require_once __DIR__ . '/../Server/koneksi.php';
 
 // Mode no-DB: redirect dengan pesan
 if ($conn === null) {
-    redirect('../register.php?pesan=nodb');
+    redirect('/register.php?pesan=nodb');
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('../register.php');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') redirect('/register.php');
 
 // Ambil & sanitasi semua input
 $email      = esc($conn, $_POST['email']        ?? '');
@@ -34,27 +33,27 @@ $role    = in_array($roleRaw, ['user', 'kontributor'], true) ? $roleRaw : 'user'
 
 // Validasi field wajib
 if (!$email || !$username || !$password || !$konfirmasi)
-    redirect('../register.php?error=empty');
+    redirect('/register.php?error=empty');
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL))
-    redirect('../register.php?error=email_invalid');
+    redirect('/register.php?error=email_invalid');
 
 if (mb_strlen($username) < 4)
-    redirect('../register.php?error=username_short');
+    redirect('/register.php?error=username_short');
 
 if (mb_strlen($password) < 6)
-    redirect('../register.php?error=password_short');
+    redirect('/register.php?error=password_short');
 
 if ($password !== $konfirmasi)
-    redirect('../register.php?error=mismatch');
+    redirect('/register.php?error=mismatch');
 
 // Cek duplikat email
 if ($conn->query("SELECT id FROM users WHERE email='$email' LIMIT 1")?->num_rows > 0)
-    redirect('../register.php?error=email_taken');
+    redirect('/register.php?error=email_taken');
 
 // Cek duplikat username
 if ($conn->query("SELECT id FROM users WHERE username='$username' LIMIT 1")?->num_rows > 0)
-    redirect('../register.php?error=username_taken');
+    redirect('/register.php?error=username_taken');
 
 // Hash password dengan bcrypt
 $hash = password_hash($password, PASSWORD_DEFAULT);
@@ -93,7 +92,7 @@ $_SESSION['kota']     = $kota;
 
 // Redirect sesuai role
 if ($role === 'kontributor') {
-    redirect('../dashboard-user.php?tab=laporan&welcome=1');
+    redirect('/dashboard-user.php?tab=laporan&welcome=1');
 } else {
-    redirect('../dashboard-user.php?welcome=1');
+    redirect('/dashboard-user.php?welcome=1');
 }

@@ -9,7 +9,6 @@
  *   reaksi  → toggle like/helpful
  * ─────────────────────────────────────────────────────────────
  */
-session_start();
 require __DIR__ . '/../Server/koneksi.php';
 cekLogin();
 

@@ -2,7 +2,6 @@
 /**
  * pusat-informasi.php — Pengaturan Pengumuman Global & API Gateway
  */
-session_start();
 require __DIR__ . '/Server/koneksi.php';
 
 // 1. KEAMANAN SANGAT KETAT: Hanya Admin Master yang boleh mengakses konfigurasi API
