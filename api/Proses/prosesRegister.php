@@ -1,15 +1,9 @@
 <?php
 /**
  * Proses/prosesRegister.php
- * ─────────────────────────────────────────────────────────────
- * Memproses form registrasi dari register.php.
- * Role yang bisa dipilih user: 'user' atau 'kontributor'
- * (Admin/admin_master hanya bisa dibuat oleh admin_master)
- * ─────────────────────────────────────────────────────────────
  */
 require_once __DIR__ . '/../Server/koneksi.php';
 
-// Mode no-DB: redirect dengan pesan
 if ($conn === null) {
     redirect('/register.php?pesan=nodb');
 }
@@ -21,13 +15,11 @@ $email      = esc($conn, $_POST['email']        ?? '');
 $username   = esc($conn, $_POST['username']     ?? '');
 $password   = trim($_POST['password']   ?? '');
 $konfirmasi = trim($_POST['konfirmasi'] ?? '');
-$nama       = esc($conn, $_POST['nama_lengkap'] ?? '');
-$tgl_lahir  = esc($conn, $_POST['tgl_lahir']   ?? '');
+// ✅ FIX: nama_lengkap dari form → kolom 'nama' di database
+$nama       = esc($conn, $_POST['nama_lengkap'] ?? $_POST['nama'] ?? '');
 $provinsi   = esc($conn, $_POST['provinsi']     ?? '');
-$kota       = esc($conn, $_POST['kota']         ?? '');
-$telepon    = esc($conn, $_POST['telepon']       ?? '');
 
-// Role hanya boleh 'user' atau 'kontributor' — tidak bisa pilih admin via register
+// Role hanya boleh 'user' atau 'kontributor'
 $roleRaw = $_POST['role'] ?? 'user';
 $role    = in_array($roleRaw, ['user', 'kontributor'], true) ? $roleRaw : 'user';
 
@@ -55,34 +47,29 @@ if ($conn->query("SELECT id FROM users WHERE email='$email' LIMIT 1")?->num_rows
 if ($conn->query("SELECT id FROM users WHERE username='$username' LIMIT 1")?->num_rows > 0)
     redirect('/register.php?error=username_taken');
 
-// Hash password dengan bcrypt
+// Hash password
 $hash = password_hash($password, PASSWORD_DEFAULT);
 
-// Format tanggal lahir
-$tgl = $tgl_lahir ? "'$tgl_lahir'" : 'NULL';
-
-// Simpan ke database
+// ✅ FIX: INSERT hanya kolom yang BENAR-BENAR ADA di tabel users
 $insertOk = $conn->query(
-    "INSERT INTO users (email, username, password, nama_lengkap, tgl_lahir, telepon, role, is_active)
-     VALUES ('$email','$username','$hash','$nama',$tgl,'$telepon','$role', 1)"
+    "INSERT INTO users (email, username, password, nama, role, is_active)
+     VALUES ('$email','$username','$hash','$nama','$role', 1)"
 );
 
-// Jika insert gagal, redirect dengan error
+// Tangkap error insert
 if (!$insertOk || $conn->insert_id === 0) {
-    redirect('/register.php?error=db_error&detail=' . urlencode($conn->error));
+    $errDetail = urlencode($conn->error ?: 'insert_id=0');
+    redirect('/register.php?error=db_error&detail=' . $errDetail);
 }
 
-$newId = (int)$conn->insert_id;
-
-// Simpan provinsi jika kolom ada
-$hasProvinsiCol = false;
-$checkCol = $conn->query("SHOW COLUMNS FROM users LIKE 'provinsi'");
-if ($checkCol && $checkCol->num_rows > 0) $hasProvinsiCol = true;
-
-if ($hasProvinsiCol && ($provinsi || $kota)) {
-    $conn->query("UPDATE users SET provinsi='$provinsi' WHERE id=$newId");
+// Update provinsi kalau kolom ada
+if ($provinsi) {
+    $newId = (int)$conn->insert_id;
+    $hasProvinsi = $conn->query("SHOW COLUMNS FROM users LIKE 'provinsi'");
+    if ($hasProvinsi && $hasProvinsi->num_rows > 0) {
+        $conn->query("UPDATE users SET provinsi='$provinsi' WHERE id=$newId");
+    }
 }
 
-// ✅ PERBAIKAN: Setelah daftar, TIDAK auto-login, langsung redirect ke halaman login
-// dengan pesan sukses agar user login manual
+// ✅ Setelah daftar → ke halaman login dengan pesan sukses (tidak auto-login)
 redirect('/login.php?pesan=register_sukses');
