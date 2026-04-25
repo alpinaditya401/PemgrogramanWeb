@@ -85,8 +85,11 @@ function rupiah(int $n): string
 {
     return 'Rp ' . number_format($n, 0, ',', '.');
 }
-function redirect(string $url): never
-{
+function redirect(string $url): never {
+    // Kalau url relatif (pakai ../), convert ke absolut
+    if (str_starts_with($url, '../')) {
+        $url = '/' . ltrim(str_replace('../', '', $url), '/');
+    }
     header("Location: $url");
     exit();
 }
