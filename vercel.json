@@ -6,6 +6,14 @@
   },
   "routes": [
     {
+      "src": "/Assets/(.+)",
+      "dest": "/api/Assets/$1",
+      "headers": {
+        "x-vercel-skip-middleware": "1"
+      },
+      "continue": false
+    },
+    {
       "src": "/uploads/(.*)",
       "dest": "/api/uploads/$1"
     },
