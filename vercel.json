@@ -6,8 +6,11 @@
   },
   "routes": [
     {
-      "src": "/Assets/(.*)",
-      "dest": "/api/Assets/$1"
+      "src": "/Assets/(.+\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map))",
+      "dest": "/api/Assets/$1",
+      "headers": {
+        "Cache-Control": "public, max-age=31536000"
+      }
     },
     {
       "src": "/uploads/(.*)",
