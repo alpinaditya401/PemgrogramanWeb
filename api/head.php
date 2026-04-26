@@ -268,4 +268,32 @@ tailwind.config = {
   .slim-scroll { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
   .slim-scroll::-webkit-scrollbar { width:3px; }
   .slim-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+  /* ═══════════════════════════════════════════════
+     RESPONSIVE — Mobile First
+  ═══════════════════════════════════════════════ */
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;backdrop-filter:blur(2px);}
+  .sidebar-overlay.active{display:block;}
+  .sidebar-toggle-btn{display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:.5rem;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;transition:background .15s;flex-shrink:0;}
+  .sidebar-toggle-btn:hover{background:var(--surface-hover);color:var(--text-primary);}
+  @media(max-width:767px){
+    .sidebar-toggle-btn{display:flex;}
+    .admin-wrap,.mwrap{position:relative;}
+    .sidebar{position:fixed!important;left:-250px!important;top:0;bottom:0;z-index:50;width:240px!important;transition:left .25s cubic-bezier(.4,0,.2,1);}
+    .sidebar.open{left:0!important;box-shadow:var(--shadow-lg);}
+    .main-area{width:100%!important;}
+    .dash-sidebar{position:fixed!important;left:-250px!important;top:0;bottom:0;z-index:50;width:240px!important;transition:left .25s cubic-bezier(.4,0,.2,1);}
+    .dash-sidebar.open{left:0!important;box-shadow:var(--shadow-lg);}
+    .dash-main{width:100%!important;}
+    .mside{position:fixed!important;left:-250px!important;top:0;bottom:0;z-index:50;width:240px!important;transition:left .25s cubic-bezier(.4,0,.2,1);}
+    .mside.open{left:0!important;box-shadow:var(--shadow-lg);}
+    .mmain{width:100%!important;}
+    .table-responsive{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .data-table th,.data-table td{white-space:nowrap;padding:.6rem .75rem;font-size:.75rem;}
+    .main-body,.mbody{padding:1rem!important;}
+  }
+  @media(max-width:640px){
+    .hide-mobile{display:none!important;}
+  }
+
 </style>

@@ -142,7 +142,8 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
 <div class="mwrap">
 
 <!-- SIDEBAR -->
-<aside class="mside">
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<aside class="mside" id="mainSidebar">
   <div class="h-16 flex items-center px-5 border-b border-[var(--border)] flex-shrink-0">
     <div class="flex items-center gap-2">
       <div class="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center shadow shadow-purple-600/30">
@@ -186,7 +187,8 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
 
 <!-- MAIN -->
 <div class="mmain">
-  <header class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-6 flex-shrink-0">
+  <header class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
+  <button class="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar"><i data-lucide="menu" class="w-4 h-4"></i></button>
     <?php $tl=['users'=>'Kelola Pengguna','bps'=>'Integrasi API BPS','settings'=>'Pengaturan Sistem']; ?>
     <h1 class="font-display font-black text-[var(--text-primary)]"><?= $tl[$activeTab]??'Dashboard' ?></h1>
     <div class="hidden md:flex items-center gap-4 text-xs text-[var(--text-muted)]">
@@ -255,7 +257,7 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
         </h2>
       </div>
       <div class="overflow-x-auto">
-        <table class="data-table">
+        <div class="table-responsive"><table class="data-table">
           <thead>
             <tr><th>Pengguna</th><th>Email</th><th>Role</th><th>Status</th><th>Login Terakhir</th><th>Ubah Role</th><th class="text-center">Hapus</th></tr>
           </thead>
@@ -316,6 +318,7 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
             <?php endforeach; endif; ?>
           </tbody>
         </table>
+</div>
       </div>
     </div>
 
@@ -544,5 +547,20 @@ let masterChart = null;
   document.addEventListener('themeChanged', ()=>{ if(masterChart) updateMasterChart(); });
 })();
 </script>
+
+<script>
+function toggleSidebar(){
+  var s=document.getElementById('mainSidebar');
+  var o=document.getElementById('sidebarOverlay');
+  s.classList.toggle('open');
+  o.classList.toggle('active');
+}
+function closeSidebar(){
+  document.getElementById('mainSidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('active');
+}
+window.addEventListener('resize',function(){ if(window.innerWidth>=768) closeSidebar(); });
+</script>
+
 </body>
 </html>
