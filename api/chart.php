@@ -283,38 +283,18 @@ function updateChartKota(provinsi) {
   }
 })();
 </script>
-<?php if (isset($data) && $data): ?>
-<?php
-    // 1. Proses data di PHP dulu agar aman dari error HTML yang bocor ke JS
-    $safeDataAll = (isset($dataAll) && is_array($dataAll)) ? $dataAll : [];
-    $mappedRows = array_map(function($r) {
-        return [
-            'lokasi'   => $r['lokasi'] ?? '',
-            'provinsi' => $r['provinsi'] ?? '',
-            'history'  => json_decode($r['history'] ?? '[]', true) ?: [],
-            'sekarang' => (int)($r['harga_sekarang'] ?? 0),
-            'kemarin'  => (int)($r['harga_kemarin'] ?? 0),
-            'satuan'   => $r['satuan'] ?? 'kg'
-        ];
-    }, $safeDataAll);
-    
-    $jsonAllRows = json_encode($mappedRows);
-    
-    $fallbackHistory = [];
-    if (isset($data['history'])) {
-        $decoded = json_decode($data['history'], true);
-        if (is_array($decoded)) $fallbackHistory = array_values($decoded);
-    }
-    $jsonFallback = json_encode($fallbackHistory);
-?>
+<?php if (isset($data)): ?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-// 2. Oper data JSON murni ke Javascript
-const allRows = <?= $jsonAllRows ?: '[]' ?>;
-const fallbackHistory = <?= $jsonFallback ?: '[]' ?>;
+// 1. Ambil data dengan aman dari PHP
+const allRows = <?php echo json_encode(isset($dataAll) ? $dataAll : []); ?>;
+const fallbackHistory = <?php echo json_encode(isset($data['history']) ? array_values(json_decode($data['history'], true) ?: []) : []); ?>;
 
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
 
+// 2. Fungsi Render Tabel
 function renderHistTable(histArr) {
   const tbody = document.getElementById('histTbody');
   if (!tbody) return;
@@ -345,24 +325,29 @@ function renderHistTable(histArr) {
   });
 }
 
+// 3. Fungsi Inisialisasi Grafik
 (function initChart() {
-  const ctx = document.getElementById('mainChart')?.getContext('2d');
-  if (!ctx) return;
+  const canvas = document.getElementById('mainChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   
   if (typeof Chart === 'undefined') {
-    console.error('Library Chart.js belum dimuat!');
+    console.error('Chart.js gagal dimuat!');
     return;
   }
 
-  const t   = getChartTheme(); 
-  let grad  = ctx.createLinearGradient(0,0,0,300);
+  // Gunakan fungsi getChartTheme() dari scripts.js kalau ada, kalau tidak pakai default
+  const t = typeof getChartTheme === 'function' ? getChartTheme() : { textColor: '#64748b', gridColor: 'rgba(0,0,0,0.05)', bgColor: '#ffffff' };
+  
+  let grad = ctx.createLinearGradient(0,0,0,300);
   grad.addColorStop(0,'rgba(16,185,129,.35)'); 
   grad.addColorStop(1,'rgba(16,185,129,0)');
 
-  // Ambil history pertama atau gunakan data fallback
-  let rawData = allRows[0]?.history ?? fallbackHistory;
-  
+  // Ambil data history (jika null, gunakan fallback)
+  let rawData = (allRows[0] && allRows[0].history) ? (typeof allRows[0].history === 'string' ? JSON.parse(allRows[0].history) : allRows[0].history) : fallbackHistory;
   if (!Array.isArray(rawData)) rawData = [];
+  
+  // Padding agar selalu 7 titik data
   const initData = rawData.slice(-7);
   while(initData.length < 7) {
     initData.unshift(initData[0] ?? 0);
@@ -401,23 +386,16 @@ function renderHistTable(histArr) {
   });
 
   renderHistTable(initData);
-
-  document.addEventListener('themeChanged', () => {
-    if (!activeChart) return;
-    const nt = getChartTheme();
-    activeChart.options.scales.y.ticks.color = nt.textColor;
-    activeChart.options.scales.y.grid.color  = nt.gridColor;
-    activeChart.options.scales.x.ticks.color = nt.textColor;
-    activeChart.data.datasets[0].pointBackgroundColor = nt.bgColor;
-    activeChart.update();
-  });
 })();
 
+// 4. Fungsi saat lokasi di-klik
 function switchChart(idx) {
   const row = allRows[idx];
   if (!row || !activeChart) return;
   
-  const hist = Array.isArray(row.history) ? row.history : [];
+  let hist = typeof row.history === 'string' ? JSON.parse(row.history) : row.history;
+  if (!Array.isArray(hist)) hist = [];
+  
   const padded = hist.slice(-7);
   while(padded.length < 7) {
     padded.unshift(padded[0] ?? 0);
@@ -426,8 +404,6 @@ function switchChart(idx) {
   activeChart.data.datasets[0].data = padded;
   activeChart.update(); 
   renderHistTable(padded); 
-  
-  document.getElementById('chartWrapper')?.scrollIntoView({behavior:'smooth', block:'center'});
 }
 </script>
 <?php endif; ?>
