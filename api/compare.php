@@ -532,7 +532,7 @@ $pageTitle = 'Perbandingan Harga Antar Kota';
     </script>
     <?php endif; ?>
 
-    <script src="api/assets/scripts.js"></script>
+    <script src="api/Assets/scripts.js"></script>
     <script>
     lucide.createIcons();
     <?php if (!empty($chartDatasets)): ?>

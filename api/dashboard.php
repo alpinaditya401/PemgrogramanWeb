@@ -596,7 +596,7 @@ const chartData = <?= json_encode(array_map(fn($r)=>['nama'=>$r['nama'],'lokasi'
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="api/assets/scripts.js"></script>
+<script src="api/Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 
