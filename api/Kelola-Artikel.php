@@ -256,7 +256,7 @@ $result = mysqli_query($conn, "SELECT a.*, u.nama as penulis FROM artikel a LEFT
         </main>
     </div>
 
-    <script src="Api/assets/scripts.js"></script>
+    <script src="/scripts.js"></script>
     <script>
         lucide.createIcons();
     </script>

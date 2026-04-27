@@ -6,9 +6,12 @@
   },
   "routes": [
     {
+      "src": "/scripts.js",
+      "dest": "/scripts.js"
+    },
+    {
       "src": "/api/Assets/(.*)",
-      "dest": "/api/Assets/$1",
-      "continue": true
+      "dest": "/api/Assets/$1"
     },
     {
       "src": "/uploads/(.*)",
@@ -24,10 +27,6 @@
     },
     {
       "src": "/Proses/(.*)\\.php(.*)",
-      "dest": "/api/Proses/$1.php$2"
-    },
-    {
-      "src": "/api/Proses/(.*)\\.php(.*)",
       "dest": "/api/Proses/$1.php$2"
     },
     {
