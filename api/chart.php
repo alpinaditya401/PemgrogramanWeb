@@ -256,7 +256,19 @@ $activeNav = 'chart';
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src='api/Assets/scripts.js'></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/api/Assets/scripts.js"></script>
+<script>
+  // Pastikan fungsi ini dibungkus DOMContentLoaded agar 
+  // menunggu scripts.js selesai dibaca browser
+  document.addEventListener('DOMContentLoaded', function() {
+      if (typeof getChartTheme === 'function') {
+          initChart();
+      } else {
+          console.error("Fungsi getChartTheme tetap tidak terbaca!");
+      }
+  });
+</script>
 <script>
 lucide.createIcons();
 
