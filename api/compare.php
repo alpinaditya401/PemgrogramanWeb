@@ -90,7 +90,66 @@ $pageTitle = 'Perbandingan Harga Antar Kota';
 <html lang="id">
 
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
-    <link rel="stylesheet" href="Assets/compare.css">
+    <style>
+    body {
+        overflow: hidden
+    }
+
+    .cmp-wrap {
+        display: flex;
+        height: 100vh
+    }
+
+    .cmp-side {
+        width: 240px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border)
+    }
+
+    .cmp-main {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem
+    }
+
+    .cmp-main::-webkit-scrollbar {
+        width: 4px
+    }
+
+    .cmp-main::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px
+    }
+
+    #compareChart {
+        position: relative;
+        width: 100%;
+        height: 380px
+    }
+
+    .color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        display: inline-block
+    }
+
+    .city-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        font-size: .75rem;
+        background: var(--surface)
+    }
+    </style>
 </head>
 
 <body>

@@ -131,7 +131,17 @@ $provinsiList = [
             theme: { extend: { fontFamily: { sans: ["Inter","sans-serif"] } } }
         };
     </script>
-    <link rel="stylesheet" href="Assets/index.css">
+    <style>
+        @keyframes marquee { 0%{transform:translateX(0%)} 100%{transform:translateX(-50%)} }
+        @keyframes float   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+        .animate-marquee { animation: marquee 45s linear infinite; will-change: transform; }
+        .animate-marquee:hover { animation-play-state: paused; }
+        .slim-scroll::-webkit-scrollbar { width: 4px; }
+        .slim-scroll::-webkit-scrollbar-track { background: transparent; }
+        .slim-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark .slim-scroll::-webkit-scrollbar-thumb { background: #334155; }
+        body { transition: background-color .25s, color .25s; }
+    </style>
 </head>
 <body class="bg-slate-50 dark:bg-[#131722] text-slate-800 dark:text-slate-300 antialiased overflow-x-hidden">
 

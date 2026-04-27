@@ -106,7 +106,18 @@ $pageTitle  = 'Dashboard Admin';
 <!doctype html>
 <html lang="id">
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
-<link rel="stylesheet" href="Assets/dashboard.css">
+<style>
+  body { overflow:hidden; }
+  .admin-wrap { display:flex; height:100vh; }
+  .sidebar { width:220px; flex-shrink:0; display:flex; flex-direction:column; height:100%; background:var(--bg-secondary); border-right:1px solid var(--border); overflow:hidden; }
+  .main-area { flex:1; display:flex; flex-direction:column; height:100%; overflow:hidden; }
+  .main-body { flex:1; overflow-y:auto; padding:1.5rem; }
+  .main-body::-webkit-scrollbar { width:4px; }
+  .main-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+  .tab-btn { display:flex; align-items:center; gap:.5rem; padding:.5rem 1rem; border-radius:.5rem; font-size:.8rem; font-weight:600; cursor:pointer; border:none; background:transparent; color:var(--text-muted); transition:background .15s,color .15s; }
+  .tab-btn.active { background:rgba(16,185,129,.1); color:#10b981; }
+  .tab-btn:hover:not(.active) { background:var(--surface); color:var(--text-primary); }
+</style>
 </head>
 <body>
 <div class="admin-wrap">
@@ -146,6 +157,7 @@ $pageTitle  = 'Dashboard Admin';
     <a href="index.php" target="_blank"><i data-lucide="home" class="w-4 h-4"></i> Home (Website)</a>
     <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Harga</a>
     <a href="index.php#artikel" target="_blank"><i data-lucide="file-text" class="w-4 h-4"></i> Artikel</a>
+    <a href="diskusi.php"><i data-lucide="message-circle" class="w-4 h-4"></i> Forum Diskusi</a>
     <a href="compare.php"><i data-lucide="git-compare" class="w-4 h-4"></i> Bandingkan</a>
     <a href="export.php?type=komoditas"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</a>
     <a href="profil.php"><i data-lucide="user-circle" class="w-4 h-4"></i> Profil Saya</a>

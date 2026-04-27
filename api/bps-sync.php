@@ -99,7 +99,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_all'])) {
 <!doctype html>
 <html lang="id">
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
-<link rel="stylesheet" href="Assets/bps-sync.css">
+<style>
+  body{font-family:'Instrument Sans',sans-serif;}
+  .prov-card{transition:border-color .15s,background .15s;}
+  .prov-card:hover{border-color:rgba(16,185,129,.3);background:var(--bg-card-hover);}
+  .status-dot-ok{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;}
+  .status-dot-no{width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block;}
+</style>
 </head>
 <body class="bg-[var(--bg-primary)] min-h-screen">
 

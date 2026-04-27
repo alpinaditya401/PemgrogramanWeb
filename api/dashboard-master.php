@@ -124,7 +124,19 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
 <html lang="id">
 <head>
 <?php include __DIR__ . '/Assets/head.php'; ?>
-<link rel="stylesheet" href="Assets/dashboard-master.css">
+<style>
+  body{overflow:hidden;}
+  .mwrap{display:flex;height:100vh;}
+  .mside{width:230px;flex-shrink:0;display:flex;flex-direction:column;height:100%;background:var(--bg-secondary);border-right:1px solid var(--border);overflow:hidden;}
+  .mmain{flex:1;display:flex;flex-direction:column;height:100%;overflow:hidden;}
+  .mbody{flex:1;overflow-y:auto;padding:1.5rem;}
+  .mbody::-webkit-scrollbar{width:4px;}
+  .mbody::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  .rb-admin_master{background:rgba(168,85,247,.12);color:#a855f7;border:1px solid rgba(168,85,247,.25);}
+  .rb-admin{background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.25);}
+  .rb-kontributor{background:rgba(59,130,246,.12);color:#3b82f6;border:1px solid rgba(59,130,246,.25);}
+  .rb-user{background:rgba(148,163,184,.1);color:#94a3b8;border:1px solid rgba(148,163,184,.2);}
+</style>
 </head>
 <body>
 <div class="mwrap">
@@ -153,6 +165,7 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
     <a href="bps-sync.php"        ><i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync Data BPS</a>
     <a href="Kelola-Artikel.php"  ><i data-lucide="file-text" class="w-4 h-4"></i> Kelola Artikel</a>
     <a href="pusat-informasi.php" ><i data-lucide="bell" class="w-4 h-4"></i> Pusat Informasi</a>
+    <a href="diskusi.php"><i data-lucide="message-circle" class="w-4 h-4"></i> Forum Diskusi</a>
     <a href="#" data-action="toggle-theme"><i data-lucide="moon" data-theme-icon="toggle" class="w-4 h-4"></i> Ganti Tema</a>
   </nav>
 

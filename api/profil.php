@@ -136,7 +136,22 @@ $pageTitle = 'Profil Saya';
 <!doctype html>
 <html lang="id">
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
-<link rel="stylesheet" href="Assets/profil.css">
+<style>
+  body{overflow:hidden}
+  .prof-wrap{display:flex;height:100vh}
+  .prof-side{width:220px;flex-shrink:0;display:flex;flex-direction:column;height:100%;background:var(--bg-secondary);border-right:1px solid var(--border)}
+  .prof-main{flex:1;overflow-y:auto;padding:2rem}
+  .prof-main::-webkit-scrollbar{width:4px}
+  .prof-main::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  .avatar-wrap{position:relative;width:96px;height:96px}
+  .avatar-img{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid var(--border)}
+  .avatar-initials{width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-display:swap;font-family:'Cabinet Grotesk',sans-serif;font-size:2.25rem;font-weight:900;color:#fff;border:3px solid var(--border)}
+  .avatar-upload-btn{position:absolute;bottom:2px;right:2px;width:28px;height:28px;border-radius:50%;background:var(--bg-card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
+  .avatar-upload-btn:hover{background:var(--bg-secondary)}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:.75rem;padding:1rem;text-align:center}
+  .section-card{background:var(--bg-card);border:1px solid var(--border);border-radius:1rem;overflow:hidden;margin-bottom:1.5rem}
+  .section-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);background:var(--bg-secondary);display:flex;align-items:center;gap:.75rem}
+</style>
 </head>
 <body>
 <div class="prof-wrap">
