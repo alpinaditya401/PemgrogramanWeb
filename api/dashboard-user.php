@@ -201,10 +201,7 @@ $pageTitle = 'Dashboard';
                 <div class="nav-section">Dashboard</div>
                 <a href="?tab=beranda" class="<?= $activeTab === 'beranda' ? 'active' : '' ?>"><i data-lucide="home"
                         class="w-4 h-4"></i> Beranda</a>
-                <a href="?tab=grafik" class="<?= $activeTab === 'grafik' ? 'active' : '' ?>"><i data-lucide="bar-chart-2"
-                        class="w-4 h-4"></i> Grafik Harga</a>
-                <a href="?tab=artikel" class="<?= $activeTab === 'artikel' ? 'active' : '' ?>"><i data-lucide="file-text"
-                        class="w-4 h-4"></i> Artikel</a>
+
                 <?php if ($isKontrib): ?>
                     <div class="nav-section">Kontributor</div>
                     <a href="?tab=laporan" class="<?= $activeTab === 'laporan' ? 'active' : '' ?> relative">
@@ -247,7 +244,7 @@ $pageTitle = 'Dashboard';
         <div class="dash-main">
             <header
                 class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-6 flex-shrink-0">
-                <?php $tabNames = ['beranda' => 'Beranda', 'grafik' => 'Grafik Harga', 'artikel' => 'Artikel Edukasi', 'laporan' => 'Laporan Harga', 'info' => 'Info & Kontak']; ?>
+                <?php $tabNames = ['beranda' => 'Beranda', 'laporan' => 'Laporan Harga', 'info' => 'Info & Kontak']; ?>
                 <h1 class="font-display font-black text-[var(--text-primary)]"><?= $tabNames[$activeTab] ?? 'Dashboard' ?>
                 </h1>
                 <?php if ($isKontrib && $activeTab !== 'laporan'): ?>
@@ -357,7 +354,7 @@ $pageTitle = 'Dashboard';
                         <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
                             <h3 class="font-display font-bold text-[var(--text-primary)] flex items-center gap-2"><i
                                     data-lucide="trending-up" class="w-4 h-4 text-brand-500"></i> Data Harga Terkini</h3>
-                            <a href="?tab=grafik"
+                            <a href="chart.php"
                                 class="text-xs text-brand-500 hover:text-brand-400 font-semibold transition">Lihat semua
                                 →</a>
                         </div>
@@ -566,7 +563,7 @@ $pageTitle = 'Dashboard';
                             <p class="text-[var(--text-muted)] text-xs mb-6">Coba pilih komoditas atau provinsi lain, atau
                                 kontributor lapangan belum menginput data untuk wilayah ini.</p>
                             <div class="flex flex-wrap justify-center gap-2">
-                                <a href="?tab=grafik"
+                                <a href="chart.php"
                                     class="px-4 py-2 bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg text-sm font-semibold text-[var(--text-secondary)] transition">
                                     Tampilkan Semua Komoditas
                                 </a>
@@ -1000,7 +997,7 @@ $pageTitle = 'Dashboard';
                     'nama' => $r['nama'],
                     'lokasi' => $r['lokasi'],
                     'provinsi' => $r['provinsi'],
-                    'history' => json_decode($r['history'] ?? '[]', true),
+                    'history' => (function($h) { $d = json_decode($h ?? '[]', true); return is_array($d) ? $d : []; })($r['history']),
                     'harga' => (int) $r['harga_sekarang'],
                     'kemarin' => (int) $r['harga_kemarin'],
                     'satuan' => $r['satuan'] ?? 'kg',
@@ -1026,7 +1023,9 @@ $pageTitle = 'Dashboard';
                     return g;
                 }
 
-                const initialData = allChartRows[0]?.history ?? [];
+                const rawInitial = allChartRows[0]?.history ?? [];
+                const initialData = Array.isArray(rawInitial) ? rawInitial : [];
+                while (initialData.length < 7) initialData.unshift(initialData[0] ?? 0);
 
                 activeChart = new Chart(ctx, {
                     type: 'line',
