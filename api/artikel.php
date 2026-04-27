@@ -1,325 +1,160 @@
 <?php
 /**
- * artikel.php — Halaman Baca Artikel
+ * 404.php — Halaman Error 404 Custom
  * ─────────────────────────────────────────────────────────────
- * Menerima parameter: ?slug=nama-slug-artikel
- * Menampilkan konten artikel lengkap kepada pembaca.
- * Setiap kunjungan ke halaman ini menaikkan kolom 'views'.
+ * Ditampilkan saat user mengakses URL yang tidak ada.
+ * Dipanggil otomatis oleh Apache lewat konfigurasi .htaccess:
+ *   ErrorDocument 404 /InfoHargaa/404.php
  * ─────────────────────────────────────────────────────────────
  */
-require __DIR__ . '/Server/koneksi.php';
+// Set HTTP response code 404 agar mesin pencari tidak index halaman ini
+http_response_code(404);
 
-// Ambil slug dari URL, sanitasi
-$slug = esc($conn, $_GET['slug'] ?? '');
-
-if (!$slug) {
-    redirect('index.php');
+// Coba load koneksi untuk APP_NAME — jika gagal, pakai fallback
+$appName = 'InfoHarga Komoditi';
+try {
+    if (file_exists(__DIR__.'/Server/koneksi.php')) {
+        require_once __DIR__.'/Server/koneksi.php';
+        $appName = defined('APP_NAME') ? APP_NAME : $appName;
+    }
+} catch (Throwable $e) {
+    // Koneksi DB gagal — 404 tetap tampil dengan data statis
 }
 
-// Handle artikel BPS: slug kosong → redirect ke halaman BPS
-// (artikel BPS tidak disimpan di DB, hanya virtual dari API)
-if (empty($slug))
-    redirect('index.php');
-
-// Cari artikel di database
-$res = $conn->query("SELECT a.*, u.username AS penulis FROM artikel a LEFT JOIN users u ON a.penulis_id=u.id WHERE a.slug='$slug' AND a.is_publish=1 LIMIT 1");
-
-if (!$res || $res->num_rows === 0) {
-    // Artikel tidak ditemukan → redirect ke index dengan pesan
-    redirect('index.php');
-}
-
-$artikel = $res->fetch_assoc();
-
-// Tambah hitungan views
-$conn->query("UPDATE artikel SET views = views + 1 WHERE id=" . (int) $artikel['id']);
-
-// Ambil artikel terkait (kategori sama, bukan artikel ini)
-$kat = esc($conn, $artikel['kategori']);
-$resRel = $conn->query("SELECT id, judul, slug, emoji, ringkasan, menit_baca FROM artikel WHERE kategori='$kat' AND slug!='$slug' AND is_publish=1 ORDER BY created_at DESC LIMIT 3");
-$related = [];
-if ($resRel)
-    while ($r = $resRel->fetch_assoc())
-        $related[] = $r;
-
-// SEO
-$pageTitle = $artikel['judul'];
-$pageDesc = $artikel['ringkasan'] ?: mb_substr(strip_tags($artikel['konten'] ?? ''), 0, 160);
-$pageKeywords = $artikel['kategori'] . ', komoditas, harga pangan Indonesia';
-$activeNav = 'artikel';
+$isLoggedIn = isset($_SESSION['login']) && $_SESSION['login'] === true;
+$role       = $_SESSION['role'] ?? '';
+$backLink   = $isLoggedIn
+    ? (in_array($role,['admin','admin_master']) ? 'dashboard.php' : 'dashboard-user.php')
+    : 'index.php';
 ?>
 <!doctype html>
 <html lang="id" class="scroll-smooth">
-
 <head>
-    <?php include __DIR__ . '/Assets/head.php'; ?>
-    <style>
-        /* Prose styling untuk konten artikel */
-        .prose p {
-            margin-bottom: 1.25rem;
-            line-height: 1.8;
-            color: var(--text-secondary);
-        }
-
-        .prose h2 {
-            font-family: 'Cabinet Grotesk', sans-serif;
-            font-weight: 800;
-            font-size: 1.35rem;
-            color: var(--text-primary);
-            margin: 2rem 0 .75rem;
-        }
-
-        .prose h3 {
-            font-family: 'Cabinet Grotesk', sans-serif;
-            font-weight: 700;
-            font-size: 1.1rem;
-            color: var(--text-primary);
-            margin: 1.5rem 0 .5rem;
-        }
-
-        .prose ul {
-            list-style: disc;
-            padding-left: 1.5rem;
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-
-        .prose ul li {
-            margin-bottom: .4rem;
-            line-height: 1.7;
-        }
-
-        .prose ol {
-            list-style: decimal;
-            padding-left: 1.5rem;
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-
-        .prose blockquote {
-            border-left: 3px solid #10b981;
-            padding: .75rem 1.25rem;
-            background: rgba(16, 185, 129, .06);
-            border-radius: 0 .5rem .5rem 0;
-            margin: 1.5rem 0;
-            font-style: italic;
-            color: var(--text-secondary);
-        }
-
-        .prose strong {
-            color: var(--text-primary);
-            font-weight: 700;
-        }
-
-        .prose a {
-            color: #10b981;
-            text-decoration: underline;
-        }
-
-        .prose a:hover {
-            color: #059669;
-        }
-    </style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>404 — Halaman Tidak Ditemukan | <?= htmlspecialchars($appName) ?></title>
+  <meta name="robots" content="noindex,nofollow"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;700;900&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script>
+    // Anti-flicker dark mode
+    (function(){
+      var t=localStorage.getItem('ih-theme');
+      var p=window.matchMedia('(prefers-color-scheme:dark)').matches;
+      if(t==='dark'||(!t&&p)) document.documentElement.classList.add('dark');
+    })();
+    tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{display:['Cabinet Grotesk','sans-serif'],body:['Instrument Sans','sans-serif']}}}};
+  </script>
+  <style>
+    body{font-family:'Instrument Sans',sans-serif;background-color:var(--bg,#f8fafc);transition:background-color .25s}
+    .dark{--bg:#0b0e14}
+    .dark body{background-color:#0b0e14}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    .float{animation:float 4s ease-in-out infinite}
+    .fade-up{animation:fadeUp .5s ease both}
+    .fade-up-1{animation:fadeUp .5s .1s ease both;opacity:0}
+    .fade-up-2{animation:fadeUp .5s .2s ease both;opacity:0}
+    .fade-up-3{animation:fadeUp .5s .3s ease both;opacity:0}
+  </style>
 </head>
+<body class="min-h-screen flex flex-col items-center justify-center text-slate-800 dark:text-slate-200 px-4 py-16">
 
-<body>
+  <!-- Background glow -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-emerald-500/8 dark:bg-emerald-500/5 blur-[80px] rounded-full"></div>
+  </div>
 
-    <!-- Ticker placeholder -->
-    <div class="h-9 bg-[var(--bg-secondary)] border-b border-[var(--border)]">
-        <div class="max-w-screen-xl mx-auto px-4 h-full flex items-center">
-            <span class="text-xs text-[var(--text-muted)] flex items-center gap-2">
-                <span class="w-1.5 h-1.5 bg-brand-500 rounded-full"
-                    style="animation:pulseDot 2s ease-in-out infinite"></span>
-                InfoHarga Komoditi — Data Harga Pangan Real-time
-            </span>
-        </div>
+  <!-- Logo -->
+  <a href="index.php" class="flex items-center gap-2.5 mb-12 fade-up group">
+    <div class="w-9 h-9 bg-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
+      <i data-lucide="trending-up" class="w-5 h-5 text-white"></i>
     </div>
+    <span class="font-display font-black text-xl text-slate-900 dark:text-white">
+      InfoHarga<span class="text-emerald-500">Komoditi</span>
+    </span>
+  </a>
 
-    <?php include __DIR__ . '/Assets/navbar.php'; ?>
-
-    <!-- BREADCRUMB + HEADER -->
-    <div class="pt-28 pb-8 bg-[var(--bg-secondary)] border-b border-[var(--border)]">
-        <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav class="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-4" aria-label="Breadcrumb">
-                <a href="index.php" class="hover:text-brand-500 transition">Beranda</a>
-                <i data-lucide="chevron-right" class="w-3 h-3"></i>
-                <a href="index.php#artikel" class="hover:text-brand-500 transition">Artikel</a>
-                <i data-lucide="chevron-right" class="w-3 h-3"></i>
-                <span class="text-brand-500"><?= htmlspecialchars($artikel['kategori']) ?></span>
-            </nav>
-
-            <div class="max-w-3xl">
-                <!-- Badge kategori & emoji -->
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="text-3xl"><?= htmlspecialchars($artikel['emoji']) ?></span>
-                    <span class="badge badge-green text-xs"><?= htmlspecialchars($artikel['kategori']) ?></span>
-                </div>
-
-                <!-- Judul -->
-                <h1 class="font-display font-black text-3xl md:text-4xl text-[var(--text-primary)] leading-tight mb-4">
-                    <?= htmlspecialchars($artikel['judul']) ?>
-                </h1>
-
-                <!-- Meta info -->
-                <div class="flex flex-wrap items-center gap-4 text-sm text-[var(--text-muted)]">
-                    <?php if ($artikel['penulis']): ?>
-                        <span class="flex items-center gap-1.5">
-                            <i data-lucide="user" class="w-3.5 h-3.5"></i>
-                            <?= htmlspecialchars($artikel['penulis']) ?>
-                        </span>
-                    <?php endif; ?>
-                    <span class="flex items-center gap-1.5">
-                        <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-                        <?= (int) $artikel['menit_baca'] ?> menit baca
-                    </span>
-                    <span class="flex items-center gap-1.5">
-                        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-                        <?= number_format((int) $artikel['views']) ?> views
-                    </span>
-                    <span class="flex items-center gap-1.5">
-                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-                        <?= date('d F Y', strtotime($artikel['created_at'])) ?>
-                    </span>
-                    <?php if ($artikel['sumber_url']): ?>
-                        <a href="<?= htmlspecialchars($artikel['sumber_url']) ?>" target="_blank" rel="noopener"
-                            class="flex items-center gap-1.5 text-brand-500 hover:text-brand-400 transition">
-                            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                            Sumber: <?= htmlspecialchars($artikel['sumber_nama'] ?: 'Baca asli') ?>
-                        </a>
-                    <?php endif; ?>
-                </div>
-            </div>
+  <!-- Angka 404 besar -->
+  <div class="float mb-6 fade-up">
+    <div class="relative select-none">
+      <span class="font-display font-black text-[9rem] md:text-[12rem] leading-none text-slate-100 dark:text-white/5">404</span>
+      <div class="absolute inset-0 flex items-center justify-center">
+        <div class="w-20 h-20 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl dark:shadow-black/50 border border-slate-200 dark:border-white/10 flex items-center justify-center">
+          <i data-lucide="search-x" class="w-10 h-10 text-emerald-500"></i>
         </div>
+      </div>
     </div>
+  </div>
 
-    <!-- MAIN CONTENT -->
-    <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div class="flex flex-col lg:flex-row gap-10">
+  <!-- Pesan utama -->
+  <h1 class="font-display font-black text-3xl md:text-4xl text-slate-900 dark:text-white text-center mb-3 fade-up-1">
+    Halaman Tidak Ditemukan
+  </h1>
+  <p class="text-slate-500 dark:text-slate-400 text-center max-w-md leading-relaxed mb-10 fade-up-2">
+    URL yang kamu akses tidak tersedia atau sudah dipindahkan.
+    Mungkin ada salah ketik? Coba kembali ke halaman utama.
+  </p>
 
-            <!-- KONTEN ARTIKEL -->
-            <article class="flex-1 min-w-0 max-w-3xl">
+  <!-- URL yang dicoba (untuk debugging) -->
+  <?php
+  $requestUri = htmlspecialchars($_SERVER['REQUEST_URI'] ?? '');
+  if ($requestUri && $requestUri !== '/404.php'):
+  ?>
+  <div class="mb-8 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 font-mono text-xs text-slate-500 dark:text-slate-400 max-w-sm truncate fade-up-2">
+    <?= $requestUri ?>
+  </div>
+  <?php endif; ?>
 
-                <!-- Ringkasan / lead -->
-                <?php if ($artikel['ringkasan']): ?>
-                    <div class="card p-5 mb-8 border-brand-500/20 bg-brand-500/4">
-                        <p class="text-[var(--text-secondary)] leading-relaxed font-medium">
-                            <?= htmlspecialchars($artikel['ringkasan']) ?>
-                        </p>
-                    </div>
-                <?php endif; ?>
+  <!-- Tombol aksi -->
+  <div class="flex flex-col sm:flex-row gap-3 fade-up-3">
+    <a href="<?= htmlspecialchars($backLink) ?>"
+       class="flex items-center justify-center gap-2.5 px-7 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-display font-bold rounded-xl text-sm transition shadow-lg shadow-emerald-600/20 hover:-translate-y-0.5">
+      <i data-lucide="home" class="w-4 h-4"></i>
+      <?= $isLoggedIn ? 'Kembali ke Dashboard' : 'Kembali ke Beranda' ?>
+    </a>
+    <a href="javascript:history.back()"
+       class="flex items-center justify-center gap-2.5 px-7 py-3.5 bg-slate-100 dark:bg-white/8 hover:bg-slate-200 dark:hover:bg-white/12 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-display font-semibold rounded-xl text-sm transition hover:-translate-y-0.5">
+      <i data-lucide="arrow-left" class="w-4 h-4"></i> Halaman Sebelumnya
+    </a>
+    <a href="index.php#artikel"
+       class="flex items-center justify-center gap-2.5 px-7 py-3.5 bg-slate-100 dark:bg-white/8 hover:bg-slate-200 dark:hover:bg-white/12 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-display font-semibold rounded-xl text-sm transition hover:-translate-y-0.5">
+      <i data-lucide="book-open" class="w-4 h-4"></i> Baca Artikel
+    </a>
+  </div>
 
-                <!-- Konten lengkap -->
-                <?php if ($artikel['konten']): ?>
-                    <div class="prose max-w-none">
-                        <?= nl2br(htmlspecialchars($artikel['konten'])) ?>
-                    </div>
-                <?php else: ?>
-                    <div class="card p-10 text-center text-[var(--text-muted)]">
-                        <i data-lucide="file-text" class="w-10 h-10 mx-auto mb-3 opacity-30"></i>
-                        <p class="text-sm">Konten artikel ini belum tersedia secara lengkap.</p>
-                        <?php if ($artikel['sumber_url']): ?>
-                            <a href="<?= htmlspecialchars($artikel['sumber_url']) ?>" target="_blank" rel="noopener"
-                                class="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition">
-                                <i data-lucide="external-link" class="w-4 h-4"></i> Baca di Sumber Asli
-                            </a>
-                        <?php endif; ?>
-                    </div>
-                <?php endif; ?>
-
-                <!-- Tombol share -->
-                <div class="mt-8 pt-6 border-t border-[var(--border)]">
-                    <p class="text-sm font-bold text-[var(--text-muted)] mb-3 uppercase tracking-wider">Bagikan Artikel
-                    </p>
-                    <div class="flex gap-2 flex-wrap">
-                        <a href="https://wa.me/?text=<?= urlencode($artikel['judul'] . ' - ' . ($artikel['sumber_url'] ?: ('http://localhost/artikel.php?slug=' . $artikel['slug']))) ?>"
-                            target="_blank" rel="noopener"
-                            class="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm font-semibold hover:bg-green-500/15 transition">
-                            <i data-lucide="message-circle" class="w-4 h-4"></i> WhatsApp
-                        </a>
-                        <a href="https://twitter.com/intent/tweet?text=<?= urlencode($artikel['judul']) ?>&url=<?= urlencode('http://localhost/artikel.php?slug=' . $artikel['slug']) ?>"
-                            target="_blank" rel="noopener"
-                            class="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-semibold hover:bg-[var(--surface-hover)] transition">
-                            <i data-lucide="share-2" class="w-4 h-4"></i> Share
-                        </a>
-                        <a href="index.php#artikel"
-                            class="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)] text-sm font-semibold hover:bg-[var(--surface-hover)] transition">
-                            <i data-lucide="arrow-left" class="w-4 h-4"></i> Semua Artikel
-                        </a>
-                    </div>
-                </div>
-            </article>
-
-            <!-- SIDEBAR -->
-            <aside class="lg:w-72 xl:w-80 flex-shrink-0">
-
-                <!-- Artikel terkait -->
-                <?php if (!empty($related)): ?>
-                    <div class="card p-5 mb-5">
-                        <h3 class="font-display font-bold text-[var(--text-primary)] text-sm mb-4 flex items-center gap-2">
-                            <i data-lucide="layers" class="w-4 h-4 text-brand-500"></i>
-                            Artikel Terkait
-                        </h3>
-                        <div class="space-y-3">
-                            <?php foreach ($related as $r): ?>
-                                <a href="artikel.php?slug=<?= urlencode($r['slug']) ?>" class="flex items-start gap-3 group">
-                                    <span class="text-xl flex-shrink-0"><?= htmlspecialchars($r['emoji']) ?></span>
-                                    <div>
-                                        <p
-                                            class="text-sm font-semibold text-[var(--text-primary)] group-hover:text-brand-500 transition-colors leading-snug">
-                                            <?= htmlspecialchars($r['judul']) ?>
-                                        </p>
-                                        <span class="text-[10px] text-[var(--text-muted)] flex items-center gap-1 mt-0.5">
-                                            <i data-lucide="clock" class="w-2.5 h-2.5"></i>
-                                            <?= (int) $r['menit_baca'] ?> menit
-                                        </span>
-                                    </div>
-                                </a>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <!-- CTA cek harga -->
-                <div class="card p-5 border-brand-500/15 bg-brand-500/5">
-                    <i data-lucide="trending-up" class="w-8 h-8 text-brand-500 mb-3"></i>
-                    <h3 class="font-display font-bold text-[var(--text-primary)] mb-2">Pantau Harga Real-time</h3>
-                    <p class="text-xs text-[var(--text-muted)] mb-4 leading-relaxed">
-                        Lihat grafik pergerakan harga komoditas dari 38 provinsi Indonesia.
-                    </p>
-                    <a href="<?= isset($_SESSION['login']) ? 'chart.php' : 'login.php' ?>"
-                        class="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl transition w-full justify-center font-display">
-                        <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Lihat Grafik
-                    </a>
-                </div>
-            </aside>
-
-        </div>
+  <!-- Link cepat -->
+  <div class="mt-14 fade-up-3">
+    <p class="text-xs text-slate-400 dark:text-slate-500 text-center mb-4 uppercase tracking-wider font-semibold">
+      Halaman Populer
+    </p>
+    <div class="flex flex-wrap justify-center gap-2">
+      <?php foreach([
+        ['index.php','home','Beranda'],
+        ['chart.php','bar-chart-2','Grafik Harga'],
+        ['register.php','user-plus','Daftar'],
+        ['login.php','log-in','Login'],
+      ] as [$url,$ic,$label]): ?>
+      <a href="<?= $url ?>" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 border border-slate-200 dark:border-white/10 hover:border-emerald-300 dark:hover:border-emerald-500/30 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+        <i data-lucide="<?= $ic ?>" class="w-3 h-3"></i> <?= $label ?>
+      </a>
+      <?php endforeach; ?>
     </div>
+  </div>
 
-    <?php include __DIR__ . '/Assets/footer.php'; ?>
-    <script src="Assets/scripts.js"></script>
-    <script>
-        lucide.createIcons();
-    </script>
+  <p class="mt-12 text-xs text-slate-400 dark:text-slate-600">&copy; <?= date('Y') ?> <?= htmlspecialchars($appName) ?></p>
 
-    <!-- Structured data artikel -->
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "Article",
-        "headline": "<?= addslashes(htmlspecialchars($artikel['judul'])) ?>",
-        "description": "<?= addslashes(htmlspecialchars($pageDesc)) ?>",
-        "author": {
-            "@type": "Person",
-            "name": "<?= addslashes(htmlspecialchars($artikel['penulis'] ?? APP_NAME)) ?>"
-        },
-        "datePublished": "<?= date('Y-m-d', strtotime($artikel['created_at'])) ?>",
-        "publisher": {
-            "@type": "Organization",
-            "name": "InfoHarga Komoditi"
-        }
-    }
-    </script>
+  <!-- Dark mode toggle -->
+  <button onclick="(function(){const d=document.documentElement;const isDark=d.classList.toggle('dark');localStorage.setItem('ih-theme',isDark?'dark':'light')})()"
+          class="fixed top-5 right-5 w-9 h-9 flex items-center justify-center rounded-lg bg-slate-100 dark:bg-white/8 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white transition"
+          aria-label="Ganti tema">
+    <i data-lucide="moon" class="w-4 h-4 dark:hidden"></i>
+    <i data-lucide="sun"  class="w-4 h-4 hidden dark:block"></i>
+  </button>
+
+<script>lucide.createIcons();</script>
 </body>
-
 </html>

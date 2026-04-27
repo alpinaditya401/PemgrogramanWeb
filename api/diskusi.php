@@ -219,7 +219,6 @@ $pageTitle = 'Dashboard';
                 <a href="index.php" target="_blank"><i data-lucide="globe" class="w-4 h-4"></i> Lihat Website</a>
                 <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Publik</a>
                 <a href="compare.php"><i data-lucide="git-compare" class="w-4 h-4"></i> Bandingkan Harga</a>
-                <a href="peta.php"><i data-lucide="map" class="w-4 h-4"></i> Peta Indonesia</a>
                 <a href="profil.php"><i data-lucide="user-circle" class="w-4 h-4"></i> Profil Saya</a>
                 <a href="#" data-action="toggle-theme"><i data-lucide="moon" data-theme-icon="toggle"
                         class="w-4 h-4"></i> Ganti Tema</a>

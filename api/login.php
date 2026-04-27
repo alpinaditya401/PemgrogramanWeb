@@ -1,186 +1,265 @@
 <?php
 /**
- * login.php — Halaman Login
+ * kelola-artikel.php — Manajemen Artikel Edukasi & Berita (CRUD & Scraping)
  */
-require_once __DIR__ . '/Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
+require __DIR__ . '/Server/koneksi.php';
 
-if (isset($_SESSION['login']) && $_SESSION['login'] === true) {
-    $dest = in_array($_SESSION['role'], ['admin','admin_master']) ? 'dashboard.php' : 'dashboard-user.php';
-    redirect($dest);
+// 1. KEAMANAN: Hanya Admin dan Admin Master yang bisa mengakses halaman ini
+if (!isset($_SESSION['login']) || ($_SESSION['role'] !== 'admin' && $_SESSION['role'] !== 'admin_master')) {
+    header("Location: login.php?pesan=akses_ditolak");
+    exit;
 }
 
-$pageTitle = 'Login';
-$pageDesc  = 'Masuk ke panel InfoHarga Komoditi.';
+$pesan = "";
+$user_id = $_SESSION['user_id'];
+
+// 2. LOGIKA HAPUS ARTIKEL
+if (isset($_GET['hapus'])) {
+    $id_hapus = (int) $_GET['hapus'];
+    mysqli_query($conn, "DELETE FROM artikel WHERE id = $id_hapus");
+    $pesan = "success|Artikel berhasil dihapus!";
+}
+
+// 3. LOGIKA TAMBAH MANUAL
+if (isset($_POST['simpan_manual'])) {
+    $judul = mysqli_real_escape_string($conn, $_POST['judul']);
+    $konten = mysqli_real_escape_string($conn, $_POST['konten']);
+
+    $query = "INSERT INTO artikel (judul, konten, tipe_sumber, dibuat_oleh) VALUES ('$judul', '$konten', 'internal', '$user_id')";
+    if (mysqli_query($conn, $query)) {
+        $pesan = "success|Artikel manual berhasil diterbitkan!";
+    } else {
+        $pesan = "error|Gagal menyimpan artikel: " . mysqli_error($conn);
+    }
+}
+
+// 4. LOGIKA AMBIL DARI LINK (SCRAPING)
+if (isset($_POST['fetch_artikel'])) {
+    $url = filter_var($_POST['url_sumber'], FILTER_SANITIZE_URL);
+
+    // Validasi format URL
+    if (filter_var($url, FILTER_VALIDATE_URL)) {
+        // Menambahkan User-Agent agar tidak diblokir oleh sistem keamanan website target (anti-bot)
+        $options = [
+            "http" => [
+                "header" => "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36\r\n"
+            ]
+        ];
+        $context = stream_context_create($options);
+
+        // Suppress warning (@) jika target web sedang down / menolak koneksi
+        $html = @file_get_contents($url, false, $context);
+
+        if ($html !== false) {
+            // Mengambil teks di antara tag <title> menggunakan Regex
+            preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $matches);
+
+            // Bersihkan judul dari nama website asal (Opsional, memotong setelah tanda '-' atau '|')
+            $judul_mentah = isset($matches[1]) ? trim($matches[1]) : 'Judul Tidak Ditemukan';
+            $judul_bersih = mysqli_real_escape_string($conn, strip_tags($judul_mentah));
+
+            $query = "INSERT INTO artikel (judul, sumber_link, tipe_sumber, dibuat_oleh) VALUES ('$judul_bersih', '$url', 'eksternal', '$user_id')";
+            if (mysqli_query($conn, $query)) {
+                $pesan = "success|Berhasil menarik artikel: $judul_bersih";
+            } else {
+                $pesan = "error|Gagal menyimpan ke database.";
+            }
+        } else {
+            $pesan = "error|Gagal mengakses link target. Pastikan URL aktif dan bisa diakses publik.";
+        }
+    } else {
+        $pesan = "error|Format URL tidak valid! Jangan lupa gunakan http:// atau https://";
+    }
+}
+
+// 5. AMBIL DATA DAFTAR ARTIKEL UNTUK DITAMPILKAN DI TABEL
+$result = mysqli_query($conn, "SELECT a.*, u.nama as penulis FROM artikel a LEFT JOIN users u ON a.dibuat_oleh = u.id ORDER BY a.id DESC");
 ?>
-<!doctype html>
+
+
+<!DOCTYPE html>
 <html lang="id">
+
 <head>
-<?php include __DIR__ . '/Assets/head.php'; ?>
-<style>
-/*
- * FIX DARK MODE BACKGROUND:
- * Masalah lama: .auth-bg hanya mendeklarasikan gradient tanpa base color,
- * sehingga body background dari head.php (var(--bg-primary)) tertimpa.
- *
- * Solusi: gunakan background-color dari var(--bg-primary) sebagai base,
- * lalu overlay gradient di atasnya dengan background-image.
- */
-body {
-  background-color: var(--bg-primary) !important;
-  background-image:
-    radial-gradient(ellipse 70% 60% at 30% 40%, rgba(16,185,129,.08) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 50% at 80% 70%, rgba(20,184,166,.06) 0%, transparent 50%);
-  background-attachment: fixed;
-  transition: background-color .25s !important;
-}
-/* Dark mode: gradient lebih subtle agar kontras dengan bg gelap */
-.dark body, html.dark body {
-  background-image:
-    radial-gradient(ellipse 70% 60% at 30% 40%, rgba(16,185,129,.05) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 50% at 80% 70%, rgba(20,184,166,.04) 0%, transparent 50%);
-}
-</style>
-</head>
-<body class="min-h-screen flex items-center justify-center p-4">
-
-  <a href="index.php" class="fixed top-5 left-5 flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition group">
-    <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"></i> Beranda
-  </a>
-  <button data-action="toggle-theme"
-          class="fixed top-5 right-5 w-9 h-9 flex items-center justify-center rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
-    <i data-lucide="moon" data-theme-icon="toggle" class="w-4 h-4"></i>
-  </button>
-
-  <div class="w-full max-w-sm animate-fade-up">
-    <!-- Logo -->
-    <div class="flex items-center justify-center gap-2.5 mb-8">
-      <div class="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30">
-        <i data-lucide="trending-up" class="w-5 h-5 text-white"></i>
-      </div>
-      <span class="font-display font-black text-xl text-[var(--text-primary)]">
-        InfoHarga<span class="text-brand-500">Komoditi</span>
-      </span>
-    </div>
-
-    <div class="card p-7 shadow-2xl">
-      <h1 class="font-display font-black text-2xl text-[var(--text-primary)] mb-1">Selamat Datang</h1>
-      <p class="text-sm text-[var(--text-muted)] mb-6">Masuk untuk mengakses dashboard</p>
-
-      <div id="msg-box" class="hidden mb-5 text-sm"></div>
     <?php
-    // Tampilkan pesan terkunci langsung dari PHP (lebih akurat dari JS)
-    $pesanUrl = $_GET['pesan'] ?? '';
-    $sisaCoba = (int)($_GET['sisa'] ?? 0);
-    $menitKunci= (int)($_GET['menit'] ?? 15);
-    if ($pesanUrl === 'locked'):
+    $pageTitle = "Kelola Artikel & Edukasi";
+    include __DIR__ . '/Assets/head.php';
     ?>
-    <div class="mb-5 msg-error flex items-start gap-3">
-      <i data-lucide="shield-alert" class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"></i>
-      <div>
-        <strong>Akun Terkunci Sementara</strong><br/>
-        <span class="text-xs">Terlalu banyak percobaan login gagal. Akun dikunci selama <strong><?= $menitKunci ?> menit</strong>. Coba lagi nanti atau hubungi admin.</span>
-      </div>
+</head>
+
+<body class="bg-[var(--bg-secondary)] text-[var(--text-primary)]">
+
+    <?php include __DIR__ . '/Assets/navbar.php'; ?>
+
+    <div class="flex min-h-screen pt-24">
+        <aside class="w-64 hidden lg:block border-r border-[var(--border)] p-6 space-y-2">
+            <h3 class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-4">Menu Master</h3>
+            <?php if ($_SESSION['role'] === 'admin_master'): ?>
+                <a href="dashboard-master.php"
+                    class="sidebar-nav flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--surface)] transition">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    <span class="font-medium">Manajemen User</span>
+                </a>
+            <?php endif; ?>
+            <a href="kelola-artikel.php"
+                class="sidebar-nav active flex items-center gap-3 p-3 rounded-xl bg-brand-500/10 text-brand-500">
+                <i data-lucide="file-text" class="w-5 h-5"></i>
+                <span class="font-medium">Kelola Artikel</span>
+            </a>
+            <a href="pusat-informasi.php"
+                class="sidebar-nav flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--surface)] transition">
+                <i data-lucide="bell" class="w-5 h-5"></i>
+                <span class="font-medium">Pusat Informasi</span>
+            </a>
+        </aside>
+
+        <main class="flex-1 p-6 lg:p-10">
+            <div class="max-w-6xl mx-auto">
+
+                <div class="mb-8">
+                    <h1 class="text-3xl font-display font-bold">Pusat Artikel Edukasi</h1>
+                    <p class="text-[var(--text-muted)]">Tulis artikel manual atau tarik berita terbaru dari link
+                        eksternal.</p>
+                </div>
+
+                <?php if ($pesan):
+                    $p = explode('|', $pesan);
+                    $bgColor = $p[0] == 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+                    ?>
+                    <div class="<?= $bgColor ?> p-4 rounded-xl mb-6 flex items-center gap-3">
+                        <i data-lucide="<?= $p[0] == 'success' ? 'check-circle' : 'alert-circle' ?>" class="w-5 h-5"></i>
+                        <p class="font-medium"><?= htmlspecialchars($p[1]) ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+
+                    <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center gap-3 mb-4 text-brand-600">
+                            <i data-lucide="link" class="w-6 h-6"></i>
+                            <h2 class="font-bold text-lg text-[var(--text-primary)]">Tarik dari Link Luar</h2>
+                        </div>
+                        <p class="text-sm text-[var(--text-muted)] mb-5">Sistem akan otomatis membaca judul dari URL
+                            yang Anda masukkan.</p>
+
+                        <form action="" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">URL Target (Website
+                                    Berita/Edukasi)</label>
+                                <input type="url" name="url_sumber"
+                                    placeholder="https://kompas.com/berita-pertanian-..." required
+                                    class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                            <button type="submit" name="fetch_artikel"
+                                class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2">
+                                <i data-lucide="download-cloud" class="w-4 h-4"></i> Ambil & Simpan
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center gap-3 mb-4 text-brand-600">
+                            <i data-lucide="edit-3" class="w-6 h-6"></i>
+                            <h2 class="font-bold text-lg text-[var(--text-primary)]">Tulis Artikel Manual</h2>
+                        </div>
+
+                        <form action="" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Judul Artikel</label>
+                                <input type="text" name="judul" required placeholder="Cth: Cara Mengatasi Hama Padi"
+                                    class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-brand-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Konten (Teks)</label>
+                                <textarea name="konten" rows="3" required placeholder="Tulis isi artikel di sini..."
+                                    class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-2 focus:ring-2 focus:ring-brand-500 outline-none"></textarea>
+                            </div>
+                            <button type="submit" name="simpan_manual"
+                                class="w-full bg-brand-600 hover:bg-brand-500 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2">
+                                <i data-lucide="send" class="w-4 h-4"></i> Terbitkan Artikel
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+
+                <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-sm">
+                    <div class="p-5 border-b border-[var(--border)] bg-[var(--surface)]">
+                        <h2 class="font-bold text-lg">Daftar Artikel Tersimpan</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead
+                                class="bg-[var(--surface)] border-b border-[var(--border)] text-[var(--text-muted)] text-sm">
+                                <tr>
+                                    <th class="p-4 font-medium">Judul Artikel</th>
+                                    <th class="p-4 font-medium">Tipe</th>
+                                    <th class="p-4 font-medium">Penulis / Waktu</th>
+                                    <th class="p-4 font-medium text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-[var(--border)] text-sm">
+                                <?php if (mysqli_num_rows($result) > 0): ?>
+                                    <?php while ($row = mysqli_fetch_assoc($result)): ?>
+                                        <tr class="hover:bg-[var(--surface)] transition">
+                                            <td class="p-4">
+                                                <p class="font-bold text-[var(--text-primary)] max-w-xs truncate"
+                                                    title="<?= htmlspecialchars($row['judul']) ?>">
+                                                    <?= htmlspecialchars($row['judul']) ?>
+                                                </p>
+                                                <?php if ($row['tipe_sumber'] == 'eksternal'): ?>
+                                                    <a href="<?= $row['sumber_link'] ?>" target="_blank"
+                                                        class="text-xs text-brand-500 hover:underline truncate inline-block max-w-[200px]">
+                                                        <i data-lucide="external-link" class="w-3 h-3 inline"></i> Link Asli
+                                                    </a>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="p-4">
+                                                <?php if ($row['tipe_sumber'] == 'eksternal'): ?>
+                                                    <span
+                                                        class="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide">EKSTERNAL</span>
+                                                <?php else: ?>
+                                                    <span
+                                                        class="bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide">INTERNAL</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="p-4">
+                                                <div class="text-[var(--text-primary)]">
+                                                    <?= htmlspecialchars($row['penulis'] ?? 'Sistem') ?>
+                                                </div>
+                                                <div class="text-xs text-[var(--text-muted)]">
+                                                    <?= date('d M Y, H:i', strtotime($row['created_at'])) ?>
+                                                </div>
+                                            </td>
+                                            <td class="p-4 text-center">
+                                                <a href="?hapus=<?= $row['id'] ?>"
+                                                    onclick="return confirm('Yakin ingin menghapus artikel ini?')"
+                                                    class="inline-flex items-center justify-center bg-red-100 text-red-600 hover:bg-red-200 p-2 rounded-lg transition"
+                                                    title="Hapus">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr>
+                                        <td colspan="4" class="p-8 text-center text-[var(--text-muted)]">Belum ada artikel
+                                            yang ditambahkan.</td>
+                                    </tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
     </div>
-    <?php elseif ($pesanUrl === 'nodb'): ?>
-    <div class="mb-5 msg-warning flex items-start gap-3">
-      <i data-lucide="database" class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5"></i>
-      <div>
-        <strong>Database Belum Terhubung</strong><br/>
-        <span class="text-xs">Fitur login belum aktif karena database belum dikonfigurasi. Hubungi administrator untuk setup database.</span>
-      </div>
-    </div>
-    <?php elseif ($pesanUrl === 'gagal' && $sisaCoba > 0): ?>
-    <div class="mb-5 msg-error flex items-start gap-3">
-      <i data-lucide="alert-circle" class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"></i>
-      <div>
-        Username atau password salah. Sisa percobaan: <strong><?= $sisaCoba ?></strong>.
-      </div>
-    </div>
-    <?php elseif ($pesanUrl === 'register_sukses'): ?>
-    <div class="mb-5 msg-success flex items-start gap-3" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:0.5rem;padding:0.75rem;">
-      <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5"></i>
-      <div>
-        <strong>Pendaftaran Berhasil!</strong><br/>
-        <span class="text-xs">Akun kamu sudah dibuat. Silakan login untuk melanjutkan.</span>
-      </div>
-    </div>
-    <?php elseif ($pesanUrl === 'logout'): ?>
-    <div class="mb-5 msg-success flex items-start gap-3" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:0.5rem;padding:0.75rem;">
-      <i data-lucide="log-out" class="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5"></i>
-      <div>
-        <strong>Logout Berhasil</strong><br/>
-        <span class="text-xs">Kamu telah keluar dari akun.</span>
-      </div>
-    </div>
-    <?php endif; ?>
 
-      <form action="Proses/prosesLogin.php" method="POST" novalidate>
-        <!-- Username -->
-        <div class="mb-4">
-          <label for="username" class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Username</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
-              <i data-lucide="user" class="w-4 h-4"></i>
-            </span>
-            <input id="username" type="text" name="username"
-                   class="input-field input-icon"
-                   placeholder="Masukkan username"
-                   autocomplete="username" required maxlength="60"/>
-          </div>
-        </div>
-
-        <!-- Password -->
-        <div class="mb-6">
-          <label for="pw" class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Password</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
-              <i data-lucide="lock" class="w-4 h-4"></i>
-            </span>
-            <input id="pw" type="password" name="password"
-                   class="input-field input-icon pr-11"
-                   placeholder="••••••••"
-                   autocomplete="current-password" required/>
-            <button type="button" id="togglePw" onclick="togglePassword('pw','togglePw')"
-                    class="absolute inset-y-0 right-3.5 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
-                    aria-label="Tampilkan password">
-              <i data-lucide="eye" class="w-4 h-4"></i>
-            </button>
-          </div>
-        </div>
-
-        <button type="submit" name="login"
-                class="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-display font-bold rounded-xl text-sm transition shadow-lg shadow-brand-600/20 hover:-translate-y-0.5">
-          Login Sekarang
-        </button>
-      </form>
-
-      <div class="flex items-center gap-3 my-5">
-        <div class="flex-1 h-px bg-[var(--border)]"></div>
-        <span class="text-[var(--text-muted)] text-xs">atau</span>
-        <div class="flex-1 h-px bg-[var(--border)]"></div>
-      </div>
-
-      <p class="text-center text-sm text-[var(--text-muted)]">
-        Belum punya akun?
-        <a href="register.php" class="text-brand-500 font-bold hover:text-brand-400 transition">Daftar sekarang</a>
-      </p>
-    </div>
-
-    <!-- Demo accounts -->
-    <div class="mt-4 card p-4 shadow-lg">
-      <p class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Demo Akun (password: password)</p>
-      <div class="grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
-        <div><span class="badge badge-purple mr-1.5">Master</span>admin_master</div>
-        <div><span class="badge badge-green mr-1.5">Admin</span>admin</div>
-        <div><span class="badge badge-blue mr-1.5">Kontributor</span>kontributor1</div>
-        <div><span class="badge badge-slate mr-1.5">User</span>user_demo</div>
-      </div>
-    </div>
-
-    <p class="text-center text-xs text-[var(--text-muted)] mt-5">&copy; <?= date('Y') ?> InfoHarga Komoditi</p>
-  </div>
-
-<script src="Assets/scripts.js"></script>
-<script>lucide.createIcons();</script>
+    <script src="/scripts.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
 </body>
+
 </html>

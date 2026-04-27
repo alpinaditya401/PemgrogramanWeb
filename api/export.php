@@ -1,128 +1,62 @@
 <?php
-/**
- * export.php — Export Data ke CSV
- * ─────────────────────────────────────────────────────────────
- * Hanya bisa diakses setelah login.
- *
- * Parameter URL:
- *   ?type=komoditas     → export semua komoditas approved
- *   ?type=laporan       → export laporan kontributor sendiri
- *   ?type=semua_laporan → export semua laporan (admin only)
- *   ?provinsi=X         → filter berdasarkan provinsi (opsional)
- *   ?nama=X             → filter berdasarkan nama komoditas (opsional)
- * ─────────────────────────────────────────────────────────────
- */
 require __DIR__ . '/Server/koneksi.php';
-cekLogin();
+cekLogin(); cekRole(['admin','admin_master']);
 
-$type     = $_GET['type']     ?? 'komoditas';
-$provinsi = trim(esc($conn, $_GET['provinsi'] ?? ''));
-$nama     = trim(esc($conn, $_GET['nama']     ?? ''));
-$uid      = (int)$_SESSION['user_id'];
-$role     = $_SESSION['role'];
-$isAdmin  = in_array($role, ['admin','admin_master']);
+if (!isset($_GET['id'])) redirect('dashboard.php');
+$id = (int)$_GET['id'];
+$q  = $conn->query("SELECT * FROM komoditas WHERE id=$id LIMIT 1");
+$row = $q?$q->fetch_assoc():null;
+if (!$row) { echo "<script>alert('Data tidak ditemukan!');window.location='dashboard.php';</script>"; exit(); }
 
-// Buat nama file CSV
-$timestamp = date('Y-m-d_H-i-s');
-$filename  = "infoharga_{$type}_{$timestamp}.csv";
-
-// ── QUERY berdasarkan type ────────────────────────────────────
-$rows  = [];
-$heads = [];
-
-switch ($type) {
-
-    case 'komoditas':
-        // Export semua komoditas approved (semua user bisa)
-        $where = "WHERE k.status='approved'";
-        if ($provinsi) $where .= " AND k.provinsi='$provinsi'";
-        if ($nama)     $where .= " AND k.nama='$nama'";
-
-        $res  = $conn->query("SELECT k.nama, k.kategori, k.lokasi, k.provinsi, k.satuan,
-                                     k.harga_kemarin, k.harga_sekarang,
-                                     ROUND((k.harga_sekarang - k.harga_kemarin) / k.harga_kemarin * 100, 2) AS perubahan_pct,
-                                     u.username AS kontributor,
-                                     k.updated_at
-                              FROM komoditas k
-                              LEFT JOIN users u ON k.submitted_by = u.id
-                              $where
-                              ORDER BY k.nama ASC, k.provinsi ASC");
-        $heads = ['Nama Komoditas','Kategori','Kota/Lokasi','Provinsi','Satuan',
-                  'Harga Kemarin (Rp)','Harga Sekarang (Rp)','Perubahan (%)','Kontributor','Terakhir Update'];
-        break;
-
-    case 'laporan':
-        // Export laporan milik kontributor sendiri
-        $res   = $conn->query("SELECT nama, kategori, lokasi, provinsi, satuan,
-                                      harga_kemarin, harga_sekarang, status, catatan_admin, created_at
-                               FROM komoditas
-                               WHERE submitted_by=$uid
-                               ORDER BY created_at DESC");
-        $heads = ['Nama Komoditas','Kategori','Kota/Lokasi','Provinsi','Satuan',
-                  'Harga Kemarin (Rp)','Harga Sekarang (Rp)','Status','Catatan Admin','Tanggal Kirim'];
-        break;
-
-    case 'semua_laporan':
-        // Export semua laporan — hanya admin
-        if (!$isAdmin) redirect('dashboard.php');
-        $res  = $conn->query("SELECT k.nama, k.kategori, k.lokasi, k.provinsi, k.satuan,
-                                     k.harga_kemarin, k.harga_sekarang, k.status, k.catatan_admin,
-                                     u.username AS kontributor, k.created_at
-                              FROM komoditas k
-                              LEFT JOIN users u ON k.submitted_by = u.id
-                              ORDER BY k.status ASC, k.created_at DESC");
-        $heads = ['Nama Komoditas','Kategori','Kota/Lokasi','Provinsi','Satuan',
-                  'Harga Kemarin (Rp)','Harga Sekarang (Rp)','Status','Catatan Admin','Kontributor','Tanggal Kirim'];
-        break;
-
-    default:
-        redirect('dashboard.php');
+if (isset($_POST['update_data'])) {
+    $nama     = esc($conn,$_POST['nama']     ?? '');
+    $kategori = esc($conn,$_POST['kategori'] ?? 'Lainnya');
+    $lokasi   = esc($conn,$_POST['lokasi']   ?? '');
+    $provinsi = esc($conn,$_POST['provinsi'] ?? '');
+    $satuan   = esc($conn,$_POST['satuan']   ?? 'kg');
+    $kemarin  = max(0,(int)$_POST['kemarin']);
+    $sekarang = max(0,(int)$_POST['sekarang']);
+    $hist     = json_decode($row['history']??'[]',true);
+    $hist[]   = $sekarang; if(count($hist)>7)array_shift($hist);
+    $hj       = esc($conn,json_encode($hist));
+    $conn->query("UPDATE komoditas SET nama='$nama',kategori='$kategori',lokasi='$lokasi',provinsi='$provinsi',satuan='$satuan',harga_kemarin=$kemarin,harga_sekarang=$sekarang,history='$hj' WHERE id=$id");
+    redirect('dashboard.php?tab=data&success=updated');
 }
 
-if (!$res) redirect('dashboard.php');
-while ($r = $res->fetch_assoc()) $rows[] = $r;
-
-// ── LOG AKTIVITAS ─────────────────────────────────────────────
-$jumlah = count($rows);
-$conn->query("INSERT IGNORE INTO activity_log (user_id,username,aksi,deskripsi,ip_address)
-    VALUES ($uid,'{$_SESSION['username']}','export_csv',
-    'Export $type ($jumlah baris) ke CSV','".esc($conn,$_SERVER['REMOTE_ADDR']??'')."')");
-
-// ── OUTPUT CSV ────────────────────────────────────────────────
-// Set header HTTP agar browser download file
-header('Content-Type: text/csv; charset=UTF-8');
-header('Content-Disposition: attachment; filename="'.$filename.'"');
-header('Cache-Control: no-cache, no-store, must-revalidate');
-header('Pragma: no-cache');
-header('Expires: 0');
-
-// BOM UTF-8 agar Excel (Windows) baca karakter Indonesia dengan benar
-echo "\xEF\xBB\xBF";
-
-$fp = fopen('php://output', 'w');
-
-// Baris judul file
-fputcsv($fp, ['InfoHarga Komoditi — Export Data']);
-fputcsv($fp, ['Tanggal Export:', date('d/m/Y H:i:s')]);
-fputcsv($fp, ['Diekspor oleh:', $_SESSION['username'].' ('.$role.')']);
-fputcsv($fp, ['Total baris:', $jumlah]);
-fputcsv($fp, []); // Baris kosong
-
-// Header kolom
-fputcsv($fp, $heads);
-
-// Data
-foreach ($rows as $r) {
-    $row = array_values($r);
-    // Format rupiah untuk kolom harga
-    foreach ($row as &$val) {
-        if (is_numeric($val) && $val > 999) {
-            $val = number_format((float)$val, 0, ',', '.');
-        }
-    }
-    unset($val);
-    fputcsv($fp, $row);
-}
-
-fclose($fp);
-exit();
+$pageTitle = 'Edit Data Komoditas';
+$kategoris = ['Beras & Serealia','Hortikultura','Bumbu & Rempah','Peternakan','Minyak & Lemak','Perikanan','Lainnya'];
+$satuans   = ['kg','gram','liter','ml','butir','ikat','buah'];
+?>
+<!doctype html>
+<html lang="id">
+<head><?php include __DIR__ . '/Assets/head.php'; ?></head>
+<body class="min-h-screen flex items-center justify-center p-4" style="background:radial-gradient(ellipse 70% 60% at 30% 40%,rgba(16,185,129,.06) 0%,transparent 55%)">
+  <a href="dashboard.php" class="fixed top-5 left-5 flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition group"><i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"></i> Dashboard</a>
+  <button data-action="toggle-theme" class="fixed top-5 right-5 w-9 h-9 flex items-center justify-center rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"><i data-lucide="moon" data-theme-icon="toggle" class="w-4 h-4"></i></button>
+  <div class="w-full max-w-lg animate-fade-up">
+    <div class="card overflow-hidden shadow-2xl">
+      <div class="px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center"><i data-lucide="pencil" class="w-4 h-4 text-blue-400"></i></div>
+        <div><h1 class="font-display font-bold text-[var(--text-primary)]">Edit Data Komoditas</h1><p class="text-[10px] text-[var(--text-muted)]">ID #<?= $id ?> · <?= htmlspecialchars($row['nama']) ?></p></div>
+      </div>
+      <form action="edit.php?id=<?= $id ?>" method="POST" class="px-6 py-5 space-y-4">
+        <div><label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Nama Komoditas</label><input type="text" name="nama" class="input-field" value="<?= htmlspecialchars($row['nama']) ?>" required/></div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Kategori</label><select name="kategori" class="input-field"><?php foreach($kategoris as $k): ?><option <?= $row['kategori']===$k?'selected':'' ?>><?= htmlspecialchars($k) ?></option><?php endforeach; ?></select></div>
+          <div><label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Satuan</label><select name="satuan" class="input-field"><?php foreach($satuans as $s): ?><option <?= $row['satuan']===$s?'selected':'' ?>><?= htmlspecialchars($s) ?></option><?php endforeach; ?></select></div>
+          <div><label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Kota/Lokasi</label><input type="text" name="lokasi" class="input-field" value="<?= htmlspecialchars($row['lokasi']) ?>" required/></div>
+          <div><label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Provinsi</label><select name="provinsi" class="input-field"><option value="">— Pilih —</option><?php foreach(PROVINSI_LIST as $p): ?><option <?= $row['provinsi']===$p?'selected':'' ?>><?= htmlspecialchars($p) ?></option><?php endforeach; ?></select></div>
+          <div><label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Harga Kemarin (Rp)</label><input type="number" name="kemarin" class="input-field" value="<?= (int)$row['harga_kemarin'] ?>" required min="0"/></div>
+          <div><label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Harga Sekarang (Rp)</label><input type="number" name="sekarang" class="input-field" value="<?= (int)$row['harga_sekarang'] ?>" required min="0"/></div>
+        </div>
+        <div class="flex items-start gap-2 p-3 rounded-xl bg-brand-500/6 border border-brand-500/15 text-xs text-[var(--text-secondary)]"><i data-lucide="info" class="w-3.5 h-3.5 text-brand-500 flex-shrink-0 mt-0.5"></i>Harga Sekarang otomatis ditambahkan ke histori grafik 7 hari.</div>
+        <div class="flex gap-3 pt-2">
+          <a href="dashboard.php" class="flex-1 py-2.5 rounded-xl text-sm font-semibold text-center text-[var(--text-secondary)] bg-[var(--surface)] hover:bg-[var(--surface-hover)] transition">Batal</a>
+          <button type="submit" name="update_data" class="flex-1 py-2.5 rounded-xl text-sm font-display font-bold text-white bg-brand-600 hover:bg-brand-500 transition shadow shadow-brand-600/20 hover:-translate-y-0.5">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<script src="/scripts.js"></script><script>lucide.createIcons();</script>
+</body>
+</html>
