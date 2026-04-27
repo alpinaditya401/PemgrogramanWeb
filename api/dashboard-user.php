@@ -185,8 +185,7 @@ $pageTitle = 'Dashboard';
     <div class="dash-wrap">
 
         <!-- ══ SIDEBAR USER ══════════════════════════════════════ -->
-        <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-<aside class="dash-sidebar" id="mainSidebar">
+        <aside class="dash-sidebar">
             <div class="h-16 flex items-center px-5 border-b border-[var(--border)] flex-shrink-0">
                 <a href="index.php" class="flex items-center gap-2">
                     <div
@@ -220,7 +219,6 @@ $pageTitle = 'Dashboard';
                 <a href="index.php" target="_blank"><i data-lucide="globe" class="w-4 h-4"></i> Lihat Website</a>
                 <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Publik</a>
                 <a href="compare.php"><i data-lucide="git-compare" class="w-4 h-4"></i> Bandingkan Harga</a>
-                <a href="peta.php"><i data-lucide="map" class="w-4 h-4"></i> Peta Indonesia</a>
                 <a href="profil.php"><i data-lucide="user-circle" class="w-4 h-4"></i> Profil Saya</a>
                 <a href="#" data-action="toggle-theme"><i data-lucide="moon" data-theme-icon="toggle"
                         class="w-4 h-4"></i> Ganti Tema</a>
@@ -247,8 +245,8 @@ $pageTitle = 'Dashboard';
 
         <!-- ══ MAIN AREA ══════════════════════════════════════════ -->
         <div class="dash-main">
-            <header class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
-                <button class="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar"><i data-lucide="menu" class="w-4 h-4"></i></button>
+            <header
+                class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-6 flex-shrink-0">
                 <?php $tabNames = ['beranda' => 'Beranda', 'grafik' => 'Grafik Harga', 'artikel' => 'Artikel Edukasi', 'laporan' => 'Laporan Harga', 'info' => 'Info & Kontak']; ?>
                 <h1 class="font-display font-black text-[var(--text-primary)]"><?= $tabNames[$activeTab] ?? 'Dashboard' ?>
                 </h1>
@@ -363,7 +361,7 @@ $pageTitle = 'Dashboard';
                                 class="text-xs text-brand-500 hover:text-brand-400 font-semibold transition">Lihat semua
                                 →</a>
                         </div>
-                        <div class="table-responsive"><table class="data-table">
+                        <table class="data-table">
                             <thead>
                                 <tr>
                                     <th>Komoditas</th>
@@ -393,7 +391,6 @@ $pageTitle = 'Dashboard';
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-</div>
                     </div>
 
                 <?php elseif ($activeTab === 'grafik'): ?>
@@ -518,7 +515,7 @@ $pageTitle = 'Dashboard';
                                         class="text-brand-500"><?= htmlspecialchars($selKom) ?></span> — Semua Lokasi
                                     (<?= count($chartAll) ?>)</h2>
                             </div>
-                            <div class="table-responsive"><table class="data-table">
+                            <table class="data-table">
                                 <thead>
                                     <tr>
                                         <th>Lokasi</th>
@@ -553,7 +550,6 @@ $pageTitle = 'Dashboard';
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
-</div>
                         </div>
                     <?php elseif (!$chartData && isset($_GET['komoditas'])): ?>
                         <!-- Data dicari tapi tidak ketemu di database -->
@@ -753,7 +749,7 @@ $pageTitle = 'Dashboard';
                                         class="flex items-center gap-1.5 text-xs text-brand-500 hover:text-brand-400 font-semibold transition"><i
                                             data-lucide="download" class="w-3.5 h-3.5"></i> Export CSV</a>
                                 </div>
-                                <div class="table-responsive"><table class="data-table">
+                                <table class="data-table">
                                     <thead>
                                         <tr>
                                             <th>Komoditas</th>
@@ -807,7 +803,6 @@ $pageTitle = 'Dashboard';
                                             <?php endforeach; endif; ?>
                                     </tbody>
                                 </table>
-</div>
                             </div>
                         </div>
                     </div>
@@ -1120,21 +1115,6 @@ $pageTitle = 'Dashboard';
             });
         </script>
     <?php endif; ?>
-
-<script>
-function toggleSidebar(){
-  var s=document.getElementById('mainSidebar');
-  var o=document.getElementById('sidebarOverlay');
-  s.classList.toggle('open');
-  o.classList.toggle('active');
-}
-function closeSidebar(){
-  document.getElementById('mainSidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('active');
-}
-window.addEventListener('resize',function(){ if(window.innerWidth>=768) closeSidebar(); });
-</script>
-
 </body>
 
 </html>

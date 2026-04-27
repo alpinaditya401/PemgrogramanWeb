@@ -202,7 +202,6 @@ $pageTitle = 'Perbandingan Harga Antar Kota';
                 <div class="nav-section">Navigasi</div>
                 <a href="dashboard-user.php"><i data-lucide="arrow-left" class="w-4 h-4"></i> Dashboard</a>
                 <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Tunggal</a>
-                <a href="peta.php"><i data-lucide="map" class="w-4 h-4"></i> Peta Indonesia</a>
                 <a href="#" data-action="toggle-theme"><i data-lucide="moon" data-theme-icon="toggle"
                         class="w-4 h-4"></i> Ganti Tema</a>
             </nav>

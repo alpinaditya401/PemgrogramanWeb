@@ -96,10 +96,3 @@ window.addEventListener('scroll', () => {
   if (bg) bg.style.boxShadow = window.scrollY > 10 ? 'var(--shadow-md)' : 'none';
 });
 </script>
-
-<script>
-document.getElementById('mobileMenuBtn')?.addEventListener('click', function(){
-  var m = document.getElementById('mobileMenu');
-  if(m) m.classList.toggle('hidden');
-});
-</script>

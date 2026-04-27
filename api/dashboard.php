@@ -123,8 +123,7 @@ $pageTitle  = 'Dashboard Admin';
 <div class="admin-wrap">
 
 <!-- ══ SIDEBAR ════════════════════════════════════════════ -->
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-<aside class="sidebar" id="mainSidebar">
+<aside class="sidebar">
   <!-- Logo -->
   <div class="h-16 flex items-center px-5 border-b border-[var(--border)] flex-shrink-0">
     <a href="index.php" class="flex items-center gap-2 group">
@@ -186,8 +185,7 @@ $pageTitle  = 'Dashboard Admin';
 <!-- ══ MAIN AREA ══════════════════════════════════════════ -->
 <div class="main-area">
   <!-- Header -->
-  <header class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
-    <button class="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar"><i data-lucide="menu" class="w-4 h-4"></i></button>
+  <header class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-6 flex-shrink-0">
     <h1 class="font-display font-black text-[var(--text-primary)]">
       <?php $tabNames=['data'=>'Dashboard','verifikasi'=>'Verifikasi Laporan','artikel'=>'Manajemen Artikel','pengumuman'=>'Manajemen Pengumuman','users'=>'Kelola Pengguna','settings'=>'Pengaturan Sistem'];
       echo $tabNames[$activeTab] ?? 'Dashboard'; ?>
@@ -256,7 +254,7 @@ $pageTitle  = 'Dashboard Admin';
     <div class="card overflow-hidden">
       <div class="px-5 py-4 border-b border-[var(--border)]"><h2 class="font-display font-bold text-[var(--text-primary)]">Daftar Komoditas</h2></div>
       <div class="overflow-x-auto">
-        <div class="table-responsive"><table class="data-table">
+        <table class="data-table">
           <thead><tr><th>No</th><th>Komoditas</th><th>Kategori</th><th>Lokasi</th><th>Provinsi</th><th>Kemarin</th><th>Sekarang</th><th class="text-center">Aksi</th></tr></thead>
           <tbody>
             <?php if(empty($rows)): ?>
@@ -282,7 +280,6 @@ $pageTitle  = 'Dashboard Admin';
             <?php endforeach; endif; ?>
           </tbody>
         </table>
-</div>
       </div>
     </div>
 
@@ -293,7 +290,7 @@ $pageTitle  = 'Dashboard Admin';
         <?php if($pendingCount>0): ?><span class="badge badge-amber"><?= $pendingCount ?> pending</span><?php endif; ?>
       </div>
       <div class="overflow-x-auto">
-        <div class="table-responsive"><table class="data-table">
+        <table class="data-table">
           <thead><tr><th>Komoditas</th><th>Lokasi</th><th>Harga</th><th>Kontributor</th><th>Tanggal</th><th>Aksi</th></tr></thead>
           <tbody>
             <?php if(empty($pending)): ?>
@@ -315,7 +312,6 @@ $pageTitle  = 'Dashboard Admin';
             <?php endforeach; endif; ?>
           </tbody>
         </table>
-</div>
       </div>
     </div>
 
@@ -323,7 +319,7 @@ $pageTitle  = 'Dashboard Admin';
     <div class="card overflow-hidden">
       <div class="px-5 py-4 border-b border-[var(--border)]"><h2 class="font-display font-bold text-[var(--text-primary)]">Daftar Artikel (<?= count($artikels) ?>)</h2></div>
       <div class="overflow-x-auto">
-        <div class="table-responsive"><table class="data-table">
+        <table class="data-table">
           <thead><tr><th>Judul</th><th>Kategori</th><th>Penulis</th><th>Status</th><th>Views</th><th class="text-center">Aksi</th></tr></thead>
           <tbody>
             <?php if(empty($artikels)): ?>
@@ -346,7 +342,6 @@ $pageTitle  = 'Dashboard Admin';
             <?php endforeach; endif; ?>
           </tbody>
         </table>
-</div>
       </div>
     </div>
 
@@ -384,7 +379,7 @@ $pageTitle  = 'Dashboard Admin';
     <div class="card overflow-hidden">
       <div class="px-5 py-4 border-b border-[var(--border)]"><h2 class="font-display font-bold text-[var(--text-primary)]">Kelola Pengguna (<?= count($allUsers) ?>)</h2><p class="text-xs text-[var(--text-muted)] mt-0.5">Ubah role pengguna. Hati-hati saat mengubah ke admin_master.</p></div>
       <div class="overflow-x-auto">
-        <div class="table-responsive"><table class="data-table">
+        <table class="data-table">
           <thead><tr><th>Pengguna</th><th>Email</th><th>Role Sekarang</th><th>Status</th><th>Login Terakhir</th><th>Ubah Role</th></tr></thead>
           <tbody>
             <?php $rBadge=['admin_master'=>'badge-purple','admin'=>'badge-green','kontributor'=>'badge-blue','user'=>'badge-slate'];
@@ -419,7 +414,6 @@ $pageTitle  = 'Dashboard Admin';
             <?php endforeach; ?>
           </tbody>
         </table>
-</div>
       </div>
     </div>
 
@@ -773,23 +767,5 @@ function updateChart() {
   });
 })();
 </script>
-
-<script>
-function toggleSidebar(){
-  var s=document.getElementById('mainSidebar');
-  var o=document.getElementById('sidebarOverlay');
-  s.classList.toggle('open');
-  o.classList.toggle('active');
-}
-function closeSidebar(){
-  document.getElementById('mainSidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('active');
-}
-// Tutup sidebar saat resize ke desktop
-window.addEventListener('resize',function(){
-  if(window.innerWidth>=768) closeSidebar();
-});
-</script>
-
 </body>
 </html>
