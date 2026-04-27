@@ -285,26 +285,27 @@ function updateChartKota(provinsi) {
 </script>
 <?php if ($data): ?>
 <script>
-// All data rows for chart switching when user clicks table row
+// Data untuk fungsi switchChart
 const allRows = <?= json_encode(array_map(fn($r)=>[
     'lokasi'   => $r['lokasi'],
     'provinsi' => $r['provinsi'],
-    'history'  => json_decode($r['history']??'[]',true),
+    'history'  => json_decode($r['history'] ?? '[]', true) ?: [],
     'sekarang' => (int)$r['harga_sekarang'],
     'kemarin'  => (int)$r['harga_kemarin'],
-    'satuan'   => $r['satuan']??'kg',
+    'satuan'   => $r['satuan'] ?? 'kg',
 ], $dataAll), JSON_UNESCAPED_UNICODE) ?>;
 
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
 
-
-// ── renderHistTable: fungsi global agar bisa dipanggil switchChart ──
+// ── renderHistTable: Fungsi global tunggal ──
 function renderHistTable(histArr) {
   const tbody = document.getElementById('histTbody');
   if (!tbody) return;
+  
   const maxH = Math.max(...histArr), minH = Math.min(...histArr);
   tbody.innerHTML = '';
+  
   histArr.forEach((h, i) => {
     const prev = i > 0 ? histArr[i-1] : h;
     const diff = h - prev;
@@ -312,11 +313,13 @@ function renderHistTable(histArr) {
     const isToday = i === histArr.length - 1;
     const barPct  = maxH > minH ? Math.round((h - minH) / (maxH - minH) * 100) : 50;
     const barCol  = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#94a3b8';
+    
     let badge = '';
     if (i === 0) badge = '<span class="text-[var(--text-muted)] text-xs">—</span>';
     else if (diff > 0) badge = `<span class="badge badge-green">▲ +${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
     else if (diff < 0) badge = `<span class="badge badge-red">▼ ${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
     else badge = '<span class="badge badge-slate">■ Stabil</span>';
+    
     tbody.innerHTML += `<tr class="${isToday ? 'bg-brand-500/[0.03]' : ''}">
       <td><span class="font-medium ${isToday ? 'text-brand-500 font-bold' : 'text-[var(--text-secondary)]'}">${LABELS[i]}</span>${isToday ? '<span class="ml-1.5 badge badge-green text-[9px]">HARI INI</span>' : ''}</td>
       <td class="font-display font-bold text-[var(--text-primary)]">Rp ${h.toLocaleString('id-ID')}</td>
@@ -326,28 +329,68 @@ function renderHistTable(histArr) {
   });
 }
 
+// ── initChart: Inisialisasi awal grafik ──
 (function initChart() {
   const ctx = document.getElementById('mainChart')?.getContext('2d');
   if (!ctx) return;
-  const t   = getChartTheme();
-  let grad  = ctx.createLinearGradient(0,0,0,300);
-  grad.addColorStop(0,'rgba(16,185,129,.35)'); grad.addColorStop(1,'rgba(16,185,129,0)');
+  
+  // Deteksi jika Chart.js belum di-load
+  if (typeof Chart === 'undefined') {
+    console.error('Library Chart.js belum dimuat! Pastikan script diletakkan di head/footer.');
+    return;
+  }
 
-  const initData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history']??'[]',true)),JSON_UNESCAPED_UNICODE) ?>;
+  const t   = getChartTheme(); // Fungsi ini dari scripts.js
+  let grad  = ctx.createLinearGradient(0,0,0,300);
+  grad.addColorStop(0,'rgba(16,185,129,.35)'); 
+  grad.addColorStop(1,'rgba(16,185,129,0)');
+
+  // Ambil data dari allRows atau fallback ke data tunggal
+  let rawData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history'] ?? '[]', true) ?: []), JSON_UNESCAPED_UNICODE) ?>;
+  
+  // FIX: Padding data agar pas 7 hari (mencegah error jika data di DB cuma sedikit)
+  if (!Array.isArray(rawData)) rawData = [];
+  const initData = rawData.slice(-7);
+  while(initData.length < 7) {
+    initData.unshift(initData[0] ?? 0);
+  }
 
   activeChart = new Chart(ctx, {
-    type:'line',
-    data:{ labels:LABELS, datasets:[{ data:initData, borderColor:'#10b981', backgroundColor:grad,
-      fill:true, tension:.4, borderWidth:2.5,
-      pointBackgroundColor:t.bgColor, pointBorderColor:'#10b981', pointRadius:5, pointHoverRadius:7 }] },
-    options:{ responsive:true, maintainAspectRatio:false,
-      interaction:{ mode:'index', intersect:false },
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>'Rp '+c.parsed.y.toLocaleString('id-ID')}} },
-      scales:{ y:{beginAtZero:false, ticks:{color:t.textColor,callback:v=>'Rp '+v.toLocaleString('id-ID')}, grid:{color:t.gridColor}},
-               x:{ticks:{color:t.textColor}, grid:{display:false}} } }
+    type: 'line',
+    data: { 
+      labels: LABELS, 
+      datasets: [{ 
+        data: initData, 
+        borderColor: '#10b981', 
+        backgroundColor: grad,
+        fill: true, 
+        tension: 0.4, 
+        borderWidth: 2.5,
+        pointBackgroundColor: t.bgColor, 
+        pointBorderColor: '#10b981', 
+        pointRadius: 5, 
+        pointHoverRadius: 7 
+      }] 
+    },
+    options: { 
+      responsive: true, 
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { 
+        legend: { display: false }, 
+        tooltip: { callbacks: { label: c => 'Rp ' + c.parsed.y.toLocaleString('id-ID') } } 
+      },
+      scales: { 
+        y: { beginAtZero: false, ticks: { color: t.textColor, callback: v => 'Rp ' + v.toLocaleString('id-ID') }, grid: { color: t.gridColor } },
+        x: { ticks: { color: t.textColor }, grid: { display: false } } 
+      } 
+    }
   });
+
+  // Render tabel dengan data yang sudah di-padding
   renderHistTable(initData);
 
+  // Responsif terhadap pergantian dark/light mode
   document.addEventListener('themeChanged', () => {
     if (!activeChart) return;
     const nt = getChartTheme();
@@ -359,17 +402,21 @@ function renderHistTable(histArr) {
   });
 })();
 
-// switchChart: called when user clicks a row in the all-locations table
+// ── switchChart: Dipanggil saat user klik baris di tabel lokasi ──
 function switchChart(idx) {
   const row = allRows[idx];
   if (!row || !activeChart) return;
+  
   const hist = Array.isArray(row.history) ? row.history : [];
   const padded = hist.slice(-7);
-  while(padded.length < 7) padded.unshift(padded[0] ?? 0);
+  while(padded.length < 7) {
+    padded.unshift(padded[0] ?? 0);
+  }
+  
   activeChart.data.datasets[0].data = padded;
-  activeChart.update('active');
-  renderHistTable(padded);
-  // Scroll to chart
+  activeChart.update(); // Update chart
+  renderHistTable(padded); // Update tabel
+  
   document.getElementById('chartWrapper')?.scrollIntoView({behavior:'smooth', block:'center'});
 }
 </script>
