@@ -266,7 +266,7 @@ $provinsiList = [
                     $naik = $ks > $kk; $turun = $ks < $kk;
                 ?>
                 <div class="bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-white/10 rounded-2xl p-4 hover:border-emerald-500/40 hover:shadow-lg transition-all duration-200 group cursor-pointer"
-                     onclick="location.href='login.php'">
+                     onclick="location.href='<?php if(isset($_SESSION['login'])&&$_SESSION['login']===true): ?>chart.php?komoditas=<?= urlencode($km['nama']) ?><?php else: ?>login.php<?php endif; ?>'">
                     <div class="flex items-start justify-between mb-3">
                         <span class="text-[10px] font-bold uppercase tracking-wider <?= $naik?'text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10':($turun?'text-red-400 bg-red-50 dark:bg-red-500/10':'text-slate-400 bg-slate-100 dark:bg-slate-800') ?> px-2 py-0.5 rounded-full">
                             <?= $naik?'▲ Naik':($turun?'▼ Turun':'■ Stabil') ?>
@@ -299,7 +299,7 @@ $provinsiList = [
                     <div class="space-y-4">
                         <?php foreach ($artikel as $art): ?>
                         <article class="bg-white dark:bg-[#1e222d] border border-slate-200 dark:border-white/10 rounded-2xl p-5 flex gap-5 cursor-pointer hover:border-emerald-500/50 hover:shadow-xl transition-all duration-300 group"
-                            onclick="<?php if(!empty($art['is_bps']) && !empty($art['sumber_url'])): ?>window.open('<?= htmlspecialchars($art['sumber_url']) ?>','_blank')<?php else: ?>location.href='login.php'<?php endif; ?>">
+                            onclick="<?php if(!empty($art['is_bps']) && !empty($art['sumber_url'])): ?>window.open('<?= htmlspecialchars($art['sumber_url']) ?>','_blank')<?php elseif(isset($_SESSION['login']) && $_SESSION['login']===true): ?>location.href='artikel.php?slug=<?= urlencode($art['slug']??'') ?>'<?php else: ?>location.href='login.php'<?php endif; ?>">
                             <div class="w-16 h-16 flex-shrink-0 rounded-2xl bg-slate-100 dark:bg-[#131722] flex items-center justify-center text-3xl select-none border border-slate-200 dark:border-white/5">
                                 <?= htmlspecialchars($art['emoji']) ?>
                             </div>
@@ -336,18 +336,27 @@ $provinsiList = [
                         </h3>
                         <div class="flex flex-wrap gap-2.5">
                             <?php foreach ($namaUnik as $nm): ?>
+                            <?php if (isset($_SESSION['login']) && $_SESSION['login'] === true): ?>
+                            <a href="chart.php?komoditas=<?= urlencode($nm) ?>" class="px-4 py-2 rounded-xl text-sm font-medium transition bg-slate-50 dark:bg-[#131722] hover:bg-emerald-50 dark:hover:bg-emerald-500/10 border border-slate-200 dark:border-white/10 hover:border-emerald-500/50 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-sm">
+                                <?= htmlspecialchars($nm) ?>
+                            </a>
+                            <?php else: ?>
                             <a href="login.php" class="px-4 py-2 rounded-xl text-sm font-medium transition bg-slate-50 dark:bg-[#131722] hover:bg-emerald-50 dark:hover:bg-emerald-500/10 border border-slate-200 dark:border-white/10 hover:border-emerald-500/50 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 shadow-sm">
                                 <?= htmlspecialchars($nm) ?>
                             </a>
+                            <?php endif; ?>
                             <?php endforeach; ?>
                         </div>
+                        <?php if (!isset($_SESSION['login']) || $_SESSION['login'] !== true): ?>
                         <p class="mt-4 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
                             <i data-lucide="lock" class="w-4 h-4 text-slate-400"></i>
                             <span><a href="login.php" class="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline">Login</a> untuk melihat grafik detail per komoditas.</span>
                         </p>
+                        <?php endif; ?>
                     </div>
 
                     <!-- CTA DAFTAR -->
+                    <?php if (!isset($_SESSION['login']) || $_SESSION['login'] !== true): ?>
                     <div class="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-6 mt-8 shadow-sm">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-5">
                             <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -400,9 +409,11 @@ $provinsiList = [
                             <?php endforeach; ?>
                         </div>
                         <div class="p-4 border-t border-slate-200 dark:border-white/5 flex-shrink-0 bg-slate-50 dark:bg-[#131722]">
+                            <?php if (!isset($_SESSION['login']) || $_SESSION['login'] !== true): ?>
                             <a href="login.php" class="flex items-center justify-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5">
                                 <i data-lucide="lock" class="w-4 h-4"></i> Login untuk Akses Penuh
                             </a>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
