@@ -55,10 +55,7 @@ $activeNav = 'chart';
 <!doctype html>
 <html lang="id">
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
-<style>
-  .filter-card:focus-within { box-shadow:0 0 0 2px rgba(16,185,129,.25); }
-  #chartWrapper { position:relative; width:100%; height:300px; }
-</style>
+<link rel="stylesheet" href="Assets/chart.css">
 </head>
 <body>
 <div class="h-9 bg-[var(--bg-secondary)] border-b border-[var(--border)]"></div>
