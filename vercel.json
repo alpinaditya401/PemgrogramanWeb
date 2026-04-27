@@ -6,6 +6,11 @@
   },
   "routes": [
     {
+      "src": "/api/assets/(.*)",
+      "dest": "/api/assets/$1",
+      "continue": true
+    },
+    {
       "src": "/uploads/(.*)",
       "dest": "/api/uploads/$1"
     },
