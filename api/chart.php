@@ -309,7 +309,23 @@ const allRows = <?= json_encode(array_map(fn($r)=>[
 
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
+<script>
+// Paste sementara di sini untuk mengetes
+function getChartTheme() {
+  const isDark = document.documentElement.classList.contains('dark');
+  return {
+    textColor: isDark ? '#64748b' : '#94a3b8',
+    gridColor: isDark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.06)',
+    titleColor: isDark ? '#f1f5f9' : '#0f172a',
+    bgColor: isDark ? '#0f1318' : '#ffffff',
+  };
+}
 
+function initChart() {
+   const theme = getChartTheme();
+   // ... kode chart kamu ...
+}
+</script>
 (function initChart() {
   const ctx = document.getElementById('mainChart')?.getContext('2d');
   if (!ctx) return;
