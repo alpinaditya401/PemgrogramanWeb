@@ -1,0 +1,7 @@
+/* CSS extracted from bps-sync.php */
+
+  body{font-family:'Instrument Sans',sans-serif;}
+  .prov-card{transition:border-color .15s,background .15s;}
+  .prov-card:hover{border-color:rgba(16,185,129,.3);background:var(--bg-card-hover);}
+  .status-dot-ok{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;}
+  .status-dot-no{width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block;}

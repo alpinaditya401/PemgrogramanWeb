@@ -1,662 +1,406 @@
 <?php
 /**
- * Server/bps_api.php
+ * profil.php — Halaman Profil Pengguna
  * ─────────────────────────────────────────────────────────────
- * Integrasi resmi Web API BPS (Badan Pusat Statistik Indonesia)
- *
- * API KEY milik project ini:
- *   4e182f178f0d964814488d42593f2594
- *
- * ENDPOINT YANG DIGUNAKAN:
- *  1. Provinsi  → /v1/api/domain/type/all/prov/00000/key/{KEY}
- *  2. Komoditas → /v1/api/list/model/data/lang/ind/domain/{DOM}/var/2310/th/126/key/{KEY}
- *     - var=2310 = variabel Harga Eceran Rata-Rata Komoditas
- *     - th=126   = kode tahun BPS untuk 2024 (BPS mulai hitung dari 1899)
- *     - domain   = kode wilayah (0000=pusat, 1100=Aceh, 3100=DKI, dst)
- *
- * CARA PAKAI:
- *   $bps = new BPS_API();
- *   $prov = $bps->getProvinces();            // daftar 38 provinsi
- *   $kom  = $bps->getKomoditasHarga('3100'); // harga komoditas DKI Jakarta
- *   $sync = $bps->syncToDatabase($conn);     // sinkronisasi ke DB
+ * Semua role bisa akses halaman ini setelah login.
+ * Fitur:
+ *   1. Lihat & edit data diri (nama, email, bio, provinsi, kota, telepon)
+ *   2. Ganti password (verifikasi password lama dulu)
+ *   3. Upload foto profil
+ *   4. Lihat statistik akun (tanggal daftar, login terakhir, total laporan)
  * ─────────────────────────────────────────────────────────────
  */
+require __DIR__ . '/Server/koneksi.php';
+require_once __DIR__ . '/Server/bps_api.php';
+cekLogin();
 
-// ── KONFIGURASI ──────────────────────────────────────────────
-define('BPS_API_KEY',  '4e182f178f0d964814488d42593f2594');
-define('BPS_BASE_URL', 'https://webapi.bps.go.id/v1/api/');
+$uid      = (int)$_SESSION['user_id'];
+$role     = $_SESSION['role'];
+$isAdmin  = in_array($role, ['admin','admin_master']);
 
-// Kode variabel BPS
-define('BPS_VAR_HARGA',  '2310');  // Harga Eceran Rata-Rata Komoditas
-define('BPS_TAHUN_KODE', '126');   // th=126 → tahun 2024
+// ── AMBIL DATA USER TERKINI ───────────────────────────────────
+$res  = $conn->query("SELECT * FROM users WHERE id=$uid LIMIT 1");
+$user = $res ? $res->fetch_assoc() : [];
 
-// Timeout untuk request API (detik)
-define('BPS_TIMEOUT', 12);
+if (!$user) redirect('login.php');
 
-/**
- * BPS_API — class untuk semua interaksi dengan Web API BPS
- */
-class BPS_API {
+$flash = ['type'=>'', 'msg'=>''];
 
-    private string $key;
-    private int    $timeout;
+// ── HANDLE UPDATE PROFIL ──────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $aksi = $_POST['aksi'] ?? '';
 
-    public function __construct(string $key = BPS_API_KEY, int $timeout = BPS_TIMEOUT) {
-        $this->key     = $key;
-        $this->timeout = $timeout;
-    }
+    // ── A. Update data diri ───────────────────────────────────
+    if ($aksi === 'update_profil') {
+        $nama     = esc($conn, trim($_POST['nama_lengkap'] ?? ''));
+        $email    = esc($conn, trim($_POST['email'] ?? ''));
+        $telepon  = esc($conn, trim($_POST['telepon'] ?? ''));
+        $bio      = esc($conn, trim($_POST['bio'] ?? ''));
+        $provinsi = esc($conn, trim($_POST['provinsi'] ?? ''));
+        $kota     = esc($conn, trim($_POST['kota'] ?? ''));
+        $tgl      = esc($conn, trim($_POST['tgl_lahir'] ?? ''));
+        $tgl_val  = $tgl ? "'$tgl'" : 'NULL';
 
-    /**
-     * ── PRIVATE: HTTP GET ke BPS API ─────────────────────────
-     * Menangani SSL, timeout, dan parsing JSON
-     */
-    private function get(string $path): ?array {
-        $url = BPS_BASE_URL . ltrim($path, '/');
-
-        $ctx = stream_context_create([
-            'http' => [
-                'method'     => 'GET',
-                'timeout'    => $this->timeout,
-                'user_agent' => 'InfoHarga-Komoditi/4.0 (PHP)',
-                'header'     => "Accept: application/json\r\n",
-            ],
-            'ssl'  => [
-                'verify_peer'      => false,
-                'verify_peer_name' => false,
-            ],
-        ]);
-
-        $raw = @file_get_contents($url, false, $ctx);
-        if (!$raw) return null;
-
-        $data = json_decode($raw, true);
-        if (json_last_error() !== JSON_ERROR_NONE) return null;
-        if (($data['status'] ?? '') !== 'OK') return null;
-
-        return $data;
-    }
-
-    // ────────────────────────────────────────────────────────
-    //  1. ENDPOINT PROVINSI
-    //     GET /v1/api/domain/type/all/prov/00000/key/{KEY}
-    // ────────────────────────────────────────────────────────
-
-    /**
-     * getProvinces() — Ambil daftar 38 provinsi dari BPS
-     *
-     * Response format:
-     *   data[0] = info pagination {page, pages, per_page, count, total}
-     *   data[1] = array of domains:
-     *     [{domain_id:"1100", domain_name:"Aceh", domain_url:"https://aceh.bps.go.id"}, ...]
-     *
-     * @return array  Array of ['domain_id'=>..., 'domain_name'=>..., 'domain_url'=>...]
-     */
-    public function getProvinces(): array {
-        $res = $this->get("domain/type/all/prov/00000/key/{$this->key}/");
-        if (!$res) return [];
-
-        // BPS returns data[1] as the actual list
-        $list = $res['data'][1] ?? [];
-        if (!is_array($list)) return [];
-
-        return $list;
-    }
-
-    /**
-     * getProvinceMap() — Kembalikan map domain_name → domain_id
-     * Berguna untuk lookup cepat berdasarkan nama provinsi
-     *
-     * @return array ['Aceh'=>'1100', 'DKI Jakarta'=>'3100', ...]
-     */
-    public function getProvinceMap(): array {
-        $provinces = $this->getProvinces();
-        $map = [];
-        foreach ($provinces as $p) {
-            $name = $p['domain_name'] ?? '';
-            $id   = $p['domain_id']   ?? '';
-            if ($name && $id) $map[$name] = $id;
+        // Validasi email tidak duplikat (kecuali email sendiri)
+        if ($email && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $cek = $conn->query("SELECT id FROM users WHERE email='$email' AND id!=$uid LIMIT 1");
+            if ($cek && $cek->num_rows > 0) {
+                $flash = ['type'=>'error','msg'=>'Email sudah digunakan akun lain.'];
+            } else {
+                $conn->query("UPDATE users SET
+                    nama_lengkap='$nama', email='$email', telepon='$telepon',
+                    bio='$bio', provinsi='$provinsi', kota='$kota', tgl_lahir=$tgl_val
+                    WHERE id=$uid");
+                // Catat di activity log
+                $conn->query("INSERT IGNORE INTO activity_log (user_id,username,aksi,deskripsi,ip_address)
+                    VALUES ($uid,'{$_SESSION['username']}','update_profil','Update data diri','".esc($conn,$_SERVER['REMOTE_ADDR']??'')."')");
+                $flash = ['type'=>'success','msg'=>'Profil berhasil diperbarui!'];
+                // Refresh data
+                $res  = $conn->query("SELECT * FROM users WHERE id=$uid LIMIT 1");
+                $user = $res ? $res->fetch_assoc() : $user;
+            }
+        } else {
+            $flash = ['type'=>'error','msg'=>'Format email tidak valid.'];
         }
-        return $map;
     }
 
-    // ────────────────────────────────────────────────────────
-    //  2. ENDPOINT DATA HARGA KOMODITAS
-    //     GET /v1/api/list/model/data/lang/ind/domain/{DOM}/var/2310/th/126/key/{KEY}
-    // ────────────────────────────────────────────────────────
+    // ── B. Ganti password ─────────────────────────────────────
+    if ($aksi === 'ganti_password') {
+        $pw_lama = trim($_POST['pw_lama'] ?? '');
+        $pw_baru = trim($_POST['pw_baru'] ?? '');
+        $pw_konfirm = trim($_POST['pw_konfirm'] ?? '');
 
-    /**
-     * getKomoditasHarga() — Ambil data harga komoditas dari BPS
-     *
-     * BPS Response structure untuk model=data:
-     * {
-     *   "status": "OK",
-     *   "datacontent": {
-     *     "2310126": {          <- key = var+th
-     *       "1": 15000,         <- vervar_id: harga (rupiah)
-     *       "2": 13500,
-     *       ...
-     *     }
-     *   },
-     *   "vervar": [             <- daftar komoditas
-     *     {"val":"1", "label":"Beras Kualitas Bawah II"},
-     *     {"val":"2", "label":"Beras Kualitas Medium I"},
-     *     ...
-     *   ],
-     *   "var":    [{"val":"2310","label":"Harga Eceran ..."}],
-     *   "tahun":  [{"val":"126","label":"2024"}]
-     * }
-     *
-     * @param string $domainId  Kode domain BPS (0000=pusat, 1100=Aceh, 3100=DKI, dst)
-     * @return array            Array komoditas: [['nama'=>..., 'harga'=>..., 'satuan'=>...], ...]
-     */
-    public function getKomoditasHarga(string $domainId = '0000'): array {
-        $path = "list/model/data/lang/ind/domain/{$domainId}/var/" . BPS_VAR_HARGA
-              . "/th/" . BPS_TAHUN_KODE . "/key/{$this->key}";
-
-        $res = $this->get($path);
-        if (!$res) return [];
-
-        // Ambil daftar nama komoditas dari vervar
-        $vervar = $res['vervar'] ?? [];
-        $namaMap = [];
-        foreach ($vervar as $item) {
-            $namaMap[$item['val']] = $item['label'] ?? '';
+        if (!$pw_lama || !$pw_baru || !$pw_konfirm) {
+            $flash = ['type'=>'error','msg'=>'Semua field password wajib diisi.'];
+        } elseif (!password_verify($pw_lama, $user['password'])) {
+            $flash = ['type'=>'error','msg'=>'Password lama tidak cocok.'];
+        } elseif (mb_strlen($pw_baru) < 6) {
+            $flash = ['type'=>'error','msg'=>'Password baru minimal 6 karakter.'];
+        } elseif ($pw_baru !== $pw_konfirm) {
+            $flash = ['type'=>'error','msg'=>'Konfirmasi password tidak cocok.'];
+        } elseif ($pw_baru === $pw_lama) {
+            $flash = ['type'=>'error','msg'=>'Password baru tidak boleh sama dengan yang lama.'];
+        } else {
+            $hash = password_hash($pw_baru, PASSWORD_DEFAULT);
+            $conn->query("UPDATE users SET password='$hash' WHERE id=$uid");
+            $conn->query("INSERT IGNORE INTO activity_log (user_id,username,aksi,deskripsi,ip_address)
+                VALUES ($uid,'{$_SESSION['username']}','ganti_password','Ganti password akun','".esc($conn,$_SERVER['REMOTE_ADDR']??'')."')");
+            $flash = ['type'=>'success','msg'=>'Password berhasil diubah! Gunakan password baru saat login berikutnya.'];
         }
-
-        // Kunci data = var+th = "2310" + "126" = "2310126"
-        $dataKey     = BPS_VAR_HARGA . BPS_TAHUN_KODE;
-        $datacontent = $res['datacontent'][$dataKey] ?? $res['datacontent'] ?? [];
-
-        if (empty($datacontent) || empty($namaMap)) return [];
-
-        // Bangun array hasil
-        $result = [];
-        foreach ($datacontent as $varId => $hargaRaw) {
-            $nama = $namaMap[$varId] ?? null;
-            if (!$nama) continue;
-
-            $harga = (int)$hargaRaw;
-            if ($harga <= 0) continue;
-
-            // Tentukan satuan berdasarkan nama komoditas
-            $satuan = self::guessSatuan($nama);
-
-            // Kategorikan
-            $kategori = self::guessKategori($nama);
-
-            $result[] = [
-                'bps_id'   => $varId,
-                'nama'     => $nama,
-                'harga'    => $harga,
-                'satuan'   => $satuan,
-                'kategori' => $kategori,
-            ];
-        }
-
-        return $result;
     }
 
-    // ────────────────────────────────────────────────────────
-    //  3. SINKRONISASI KE DATABASE
-    // ────────────────────────────────────────────────────────
+    // ── C. Upload foto profil ─────────────────────────────────
+    if ($aksi === 'upload_foto' && isset($_FILES['foto'])) {
+        $file = $_FILES['foto'];
+        $allowedTypes = ['image/jpeg','image/png','image/webp','image/gif'];
+        $maxSize = 2 * 1024 * 1024; // 2MB
 
-    /**
-     * syncProvincesToDB() — Simpan/update data provinsi ke DB
-     * Mengupdate kolom `provinsi` di tabel komoditas yang kosong
-     * berdasarkan mapping nama dari BPS
-     *
-     * @return array ['inserted'=>int, 'errors'=>string[]]
-     */
-    public function syncProvincesToDB(mysqli $conn): array {
-        $provinces = $this->getProvinces();
-        $result    = ['count' => count($provinces), 'domains' => []];
-        foreach ($provinces as $p) {
-            $result['domains'][] = [
-                'id'   => $p['domain_id']   ?? '',
-                'name' => $p['domain_name'] ?? '',
-            ];
-        }
-        return $result;
-    }
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $flash = ['type'=>'error','msg'=>'Upload gagal. Coba lagi.'];
+        } elseif (!in_array($file['type'], $allowedTypes)) {
+            $flash = ['type'=>'error','msg'=>'Format file tidak didukung. Gunakan JPG, PNG, atau WebP.'];
+        } elseif ($file['size'] > $maxSize) {
+            $flash = ['type'=>'error','msg'=>'Ukuran file maksimal 2MB.'];
+        } else {
+            $uploadDir = 'uploads/foto/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
-    /**
-     * syncKomoditasToDB() — Sinkronisasi harga komoditas BPS ke DB
-     *
-     * Untuk setiap provinsi yang ada di DB:
-     *  1. Ambil domain_id BPS yang sesuai
-     *  2. Fetch data harga dari BPS
-     *  3. Upsert ke tabel komoditas dengan status='approved'
-     *
-     * @param  mysqli  $conn
-     * @param  string  $domainId   Kode domain BPS (default: 0000 = nasional)
-     * @param  string  $provinsiName  Nama provinsi Indonesia untuk disimpan
-     * @param  string  $lokasiName    Nama kota/lokasi untuk disimpan
-     * @return array   ['inserted'=>int, 'updated'=>int, 'errors'=>string[]]
-     */
-    public function syncKomoditasToDB(
-        mysqli $conn,
-        string $domainId    = '0000',
-        string $provinsiName = 'Nasional',
-        string $lokasiName   = 'Indonesia'
-    ): array {
-        $items    = $this->getKomoditasHarga($domainId);
-        $inserted = 0;
-        $updated  = 0;
-        $errors   = [];
+            // Hapus foto lama jika ada
+            if (!empty($user['foto_profil']) && file_exists($uploadDir.$user['foto_profil'])) {
+                @unlink($uploadDir.$user['foto_profil']);
+            }
 
-        foreach ($items as $item) {
-            try {
-                $nama     = $conn->real_escape_string($item['nama']);
-                $kategori = $conn->real_escape_string($item['kategori']);
-                $lokasi   = $conn->real_escape_string($lokasiName);
-                $provinsi = $conn->real_escape_string($provinsiName);
-                $satuan   = $conn->real_escape_string($item['satuan']);
-                $sekarang = (int)$item['harga'];
-                $kemarin  = $sekarang; // BPS tidak sediakan harga kemarin, set sama
-
-                // Cek apakah sudah ada (sama nama + lokasi + source BPS)
-                $check = $conn->query(
-                    "SELECT id, harga_sekarang, history FROM komoditas
-                     WHERE nama='$nama' AND lokasi='$lokasi' AND status='approved'
-                     LIMIT 1"
-                );
-
-                if ($check && $check->num_rows > 0) {
-                    // Update — jadikan harga lama sebagai kemarin
-                    $old = $check->fetch_assoc();
-                    $kemarin_actual = (int)$old['harga_sekarang'];
-
-                    // Update history JSON
-                    $hist = json_decode($old['history'] ?? '[]', true);
-                    if (!is_array($hist)) $hist = [];
-                    $hist[] = $sekarang;
-                    if (count($hist) > 7) array_shift($hist);
-                    $histJson = $conn->real_escape_string(json_encode($hist));
-
-                    $conn->query(
-                        "UPDATE komoditas SET
-                            harga_kemarin=$kemarin_actual,
-                            harga_sekarang=$sekarang,
-                            history='$histJson',
-                            updated_at=NOW()
-                         WHERE id={$old['id']}"
-                    );
-                    $updated++;
-                } else {
-                    // Insert baru — history 7 titik dengan nilai yang sama
-                    $histArr  = array_fill(0, 6, $sekarang);
-                    $histArr[] = $sekarang;
-                    $histJson = $conn->real_escape_string(json_encode($histArr));
-
-                    $conn->query(
-                        "INSERT INTO komoditas
-                            (nama, kategori, lokasi, provinsi, satuan,
-                             harga_kemarin, harga_sekarang, history, status)
-                         VALUES
-                            ('$nama','$kategori','$lokasi','$provinsi','$satuan',
-                             $kemarin,$sekarang,'$histJson','approved')"
-                    );
-                    $inserted++;
-                }
-            } catch (Exception $e) {
-                $errors[] = $e->getMessage();
+            $ext      = pathinfo($file['name'], PATHINFO_EXTENSION);
+            $filename = 'user_'.$uid.'_'.time().'.'.$ext;
+            if (move_uploaded_file($file['tmp_name'], $uploadDir.$filename)) {
+                $fn = esc($conn, $filename);
+                $conn->query("UPDATE users SET foto_profil='$fn' WHERE id=$uid");
+                $user['foto_profil'] = $filename;
+                $flash = ['type'=>'success','msg'=>'Foto profil berhasil diperbarui!'];
+            } else {
+                $flash = ['type'=>'error','msg'=>'Gagal menyimpan foto. Pastikan folder uploads/foto/ ada dan writable.'];
             }
         }
-
-        return [
-            'inserted' => $inserted,
-            'updated'  => $updated,
-            'total'    => count($items),
-            'errors'   => $errors,
-        ];
-    }
-
-    // ────────────────────────────────────────────────────────
-    //  4. HELPER STATIS
-    // ────────────────────────────────────────────────────────
-
-    /**
-     * guessSatuan() — Tebak satuan dari nama komoditas BPS
-     */
-    public static function guessSatuan(string $nama): string {
-        $nm = strtolower($nama);
-        if (str_contains($nm,'minyak') || str_contains($nm,'bensin')) return 'liter';
-        if (str_contains($nm,'telur'))                                 return 'butir';
-        if (str_contains($nm,'gula') && str_contains($nm,'pasir'))     return 'kg';
-        return 'kg'; // default
-    }
-
-    /**
-     * guessKategori() — Kategorikan komoditas dari nama BPS
-     */
-    public static function guessKategori(string $nama): string {
-        $nm = strtolower($nama);
-        if (str_contains($nm,'beras') || str_contains($nm,'jagung') || str_contains($nm,'kedelai')) return 'Beras & Serealia';
-        if (str_contains($nm,'cabai') || str_contains($nm,'tomat')  || str_contains($nm,'bawang'))  return 'Hortikultura';
-        if (str_contains($nm,'daging')|| str_contains($nm,'ayam')   || str_contains($nm,'telur'))   return 'Peternakan';
-        if (str_contains($nm,'ikan')  || str_contains($nm,'udang')  || str_contains($nm,'bandeng')) return 'Perikanan';
-        if (str_contains($nm,'minyak goreng'))                                                      return 'Minyak & Lemak';
-        if (str_contains($nm,'gula')  || str_contains($nm,'garam')  || str_contains($nm,'terigu'))  return 'Lainnya';
-        return 'Lainnya';
-    }
-
-    /**
-     * getDomainIdByProvinsi() — Cari domain_id BPS dari nama provinsi Indonesia
-     * Menggunakan mapping nama provinsi → kode domain BPS
-     */
-    public static function getDomainIdByProvinsi(string $provinsiName): string {
-        $map = [
-            'Aceh'                        => '1100',
-            'Sumatera Utara'              => '1200',
-            'Sumatera Barat'              => '1300',
-            'Riau'                        => '1400',
-            'Jambi'                       => '1500',
-            'Sumatera Selatan'            => '1600',
-            'Bengkulu'                    => '1700',
-            'Lampung'                     => '1800',
-            'Kepulauan Bangka Belitung'   => '1900',
-            'Kepulauan Riau'              => '2100',
-            'DKI Jakarta'                 => '3100',
-            'Jawa Barat'                  => '3200',
-            'Jawa Tengah'                 => '3300',
-            'DI Yogyakarta'               => '3400',
-            'Jawa Timur'                  => '3500',
-            'Banten'                      => '3600',
-            'Bali'                        => '5100',
-            'Nusa Tenggara Barat'         => '5200',
-            'Nusa Tenggara Timur'         => '5300',
-            'Kalimantan Barat'            => '6100',
-            'Kalimantan Tengah'           => '6200',
-            'Kalimantan Selatan'          => '6300',
-            'Kalimantan Timur'            => '6400',
-            'Kalimantan Utara'            => '6500',
-            'Sulawesi Utara'              => '7100',
-            'Sulawesi Tengah'             => '7200',
-            'Sulawesi Selatan'            => '7300',
-            'Sulawesi Tenggara'           => '7400',
-            'Gorontalo'                   => '7500',
-            'Sulawesi Barat'              => '7600',
-            'Maluku'                      => '8100',
-            'Maluku Utara'                => '8200',
-            'Papua Barat'                 => '9100',
-            'Papua'                       => '9400',
-            'Papua Selatan'               => '9500',
-            'Papua Tengah'                => '9600',
-            'Papua Pegunungan'            => '9700',
-            'Papua Barat Daya'            => '9800',
-        ];
-        return $map[$provinsiName] ?? '0000'; // fallback: pusat/nasional
-    }
-
-    /**
-     * buildApiUrl() — Bangun URL API BPS yang bisa diklik/dibuka browser
-     * Berguna untuk debugging atau menampilkan ke user
-     */
-    public function buildApiUrl(string $type, string $domainId = '0000'): string {
-        if ($type === 'province') {
-            return BPS_BASE_URL . "domain/type/all/prov/00000/key/{$this->key}/";
-        }
-        if ($type === 'komoditas') {
-            return BPS_BASE_URL . "list/model/data/lang/ind/domain/{$domainId}/var/"
-                 . BPS_VAR_HARGA . "/th/" . BPS_TAHUN_KODE . "/key/{$this->key}";
-        }
-        return '';
     }
 }
 
-// ── MAPPING PROVINSI → KOTA/KABUPATEN ────────────────────────
-/**
- * PROVINSI_KOTA — Digunakan untuk dropdown dinamis di form.
- * Mengikuti pembagian administratif resmi Indonesia 2024.
- */
-define('PROVINSI_KOTA', [
+// ── STATISTIK AKUN ────────────────────────────────────────────
+$statLaporan  = (int)($conn->query("SELECT COUNT(*) c FROM komoditas WHERE submitted_by=$uid")?->fetch_assoc()['c'] ?? 0);
+$statApproved = (int)($conn->query("SELECT COUNT(*) c FROM komoditas WHERE submitted_by=$uid AND status='approved'")?->fetch_assoc()['c'] ?? 0);
+$statArtikel  = (int)($conn->query("SELECT COUNT(*) c FROM artikel WHERE penulis_id=$uid AND is_publish=1")?->fetch_assoc()['c'] ?? 0);
 
-    'DKI Jakarta' => [
-        'Jakarta Pusat','Jakarta Utara','Jakarta Barat',
-        'Jakarta Selatan','Jakarta Timur','Kepulauan Seribu',
-    ],
+// ── BACK LINK sesuai role ─────────────────────────────────────
+$backLink = $isAdmin ? 'dashboard.php' : 'dashboard-user.php';
+$pageTitle = 'Profil Saya';
+?>
+<!doctype html>
+<html lang="id">
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
+<link rel="stylesheet" href="Assets/profil.css">
+</head>
+<body>
+<div class="prof-wrap">
 
-    'Jawa Barat' => [
-        'Kota Bandung','Kota Bekasi','Kota Bogor','Kota Cimahi',
-        'Kota Cirebon','Kota Depok','Kota Sukabumi','Kota Tasikmalaya',
-        'Kab. Bandung','Kab. Bandung Barat','Kab. Bekasi','Kab. Bogor',
-        'Kab. Ciamis','Kab. Cianjur','Kab. Cirebon','Kab. Garut',
-        'Kab. Indramayu','Kab. Karawang','Kab. Kuningan','Kab. Majalengka',
-        'Kab. Pangandaran','Kab. Purwakarta','Kab. Subang','Kab. Sukabumi',
-        'Kab. Sumedang','Kab. Tasikmalaya',
-    ],
+<!-- SIDEBAR -->
+<aside class="prof-side">
+  <div class="h-16 flex items-center px-5 border-b border-[var(--border)] flex-shrink-0">
+    <a href="<?= $backLink ?>" class="flex items-center gap-2 group">
+      <div class="w-7 h-7 bg-brand-500 rounded-lg flex items-center justify-center shadow shadow-brand-500/30 group-hover:scale-105 transition-transform">
+        <i data-lucide="trending-up" class="w-3.5 h-3.5 text-white"></i>
+      </div>
+      <span class="font-display font-black text-sm text-[var(--text-primary)]">InfoHarga</span>
+    </a>
+  </div>
+  <nav class="flex-1 py-4 px-3 space-y-0.5 sidebar-nav">
+    <a href="<?= $backLink ?>"><i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali</a>
+    <a href="profil.php" class="active"><i data-lucide="user-circle" class="w-4 h-4"></i> Profil Saya</a>
+    <a href="#edit-profil"><i data-lucide="pencil" class="w-4 h-4"></i> Edit Data Diri</a>
+    <a href="#ganti-password"><i data-lucide="lock" class="w-4 h-4"></i> Ganti Password</a>
+    <a href="#statistik"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Statistik Akun</a>
+    <div class="nav-section">Aksi</div>
+    <a href="Proses/logout.php" onclick="return confirm('Yakin keluar?')" class="text-red-400 hover:bg-red-500/8">
+      <i data-lucide="log-out" class="w-4 h-4"></i> Logout
+    </a>
+  </nav>
+  <div class="p-3 border-t border-[var(--border)]">
+    <button data-action="toggle-theme" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[var(--text-muted)] hover:bg-[var(--surface)] transition sidebar-nav">
+      <i data-lucide="moon" data-theme-icon="toggle" class="w-3.5 h-3.5"></i> Ganti Tema
+    </button>
+  </div>
+</aside>
 
-    'Jawa Tengah' => [
-        'Kota Semarang','Kota Solo','Kota Magelang','Kota Pekalongan',
-        'Kota Salatiga','Kota Tegal',
-        'Kab. Banjarnegara','Kab. Banyumas','Kab. Batang','Kab. Blora',
-        'Kab. Boyolali','Kab. Brebes','Kab. Cilacap','Kab. Demak',
-        'Kab. Grobogan','Kab. Jepara','Kab. Karanganyar','Kab. Kebumen',
-        'Kab. Kendal','Kab. Klaten','Kab. Kudus','Kab. Magelang',
-        'Kab. Pati','Kab. Pekalongan','Kab. Pemalang','Kab. Purbalingga',
-        'Kab. Purworejo','Kab. Rembang','Kab. Semarang','Kab. Sragen',
-        'Kab. Sukoharjo','Kab. Tegal','Kab. Temanggung','Kab. Wonogiri',
-        'Kab. Wonosobo',
-    ],
+<!-- MAIN -->
+<div class="prof-main">
 
-    'DI Yogyakarta' => [
-        'Kota Yogyakarta','Kab. Bantul','Kab. Gunungkidul',
-        'Kab. Kulon Progo','Kab. Sleman',
-    ],
+  <!-- Flash message -->
+  <?php if ($flash['msg']): ?>
+  <div class="mb-6 flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium <?= $flash['type']==='success'?'msg-success':'msg-error' ?> animate-fade-up">
+    <i data-lucide="<?= $flash['type']==='success'?'check-circle':'alert-circle' ?>" class="w-4 h-4 flex-shrink-0"></i>
+    <?= htmlspecialchars($flash['msg']) ?>
+  </div>
+  <?php endif; ?>
 
-    'Jawa Timur' => [
-        'Kota Surabaya','Kota Malang','Kota Madiun','Kota Mojokerto',
-        'Kota Blitar','Kota Kediri','Kota Pasuruan','Kota Probolinggo','Kota Batu',
-        'Kab. Bangkalan','Kab. Banyuwangi','Kab. Blitar','Kab. Bojonegoro',
-        'Kab. Bondowoso','Kab. Gresik','Kab. Jember','Kab. Jombang',
-        'Kab. Kediri','Kab. Lamongan','Kab. Lumajang','Kab. Madiun',
-        'Kab. Magetan','Kab. Malang','Kab. Mojokerto','Kab. Nganjuk',
-        'Kab. Ngawi','Kab. Pacitan','Kab. Pamekasan','Kab. Pasuruan',
-        'Kab. Ponorogo','Kab. Probolinggo','Kab. Sampang','Kab. Sidoarjo',
-        'Kab. Situbondo','Kab. Sumenep','Kab. Trenggalek','Kab. Tuban','Kab. Tulungagung',
-    ],
+  <!-- Header profil -->
+  <div class="section-card mb-6">
+    <div class="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-6">
+      <!-- Avatar + upload -->
+      <form method="POST" enctype="multipart/form-data" id="fotoForm">
+        <input type="hidden" name="aksi" value="upload_foto"/>
+        <div class="avatar-wrap">
+          <?php if (!empty($user['foto_profil']) && file_exists('uploads/foto/'.$user['foto_profil'])): ?>
+          <img src="uploads/foto/<?= htmlspecialchars($user['foto_profil']) ?>" alt="Foto profil" class="avatar-img"/>
+          <?php else: ?>
+          <div class="avatar-initials"><?= strtoupper(substr($user['username'],0,1)) ?></div>
+          <?php endif; ?>
+          <label for="fotoInput" class="avatar-upload-btn" title="Ganti foto">
+            <i data-lucide="camera" class="w-3.5 h-3.5 text-[var(--text-muted)]"></i>
+          </label>
+          <input type="file" id="fotoInput" name="foto" class="hidden" accept="image/jpeg,image/png,image/webp"
+                 onchange="document.getElementById('fotoForm').submit()"/>
+        </div>
+      </form>
 
-    'Banten' => [
-        'Kota Cilegon','Kota Serang','Kota Tangerang','Kota Tangerang Selatan',
-        'Kab. Lebak','Kab. Pandeglang','Kab. Serang','Kab. Tangerang',
-    ],
+      <!-- Info user -->
+      <div class="flex-1">
+        <div class="flex items-center gap-2.5 mb-1">
+          <h1 class="font-display font-black text-2xl text-[var(--text-primary)]">
+            <?= htmlspecialchars($user['nama_lengkap'] ?: $user['username']) ?>
+          </h1>
+          <?php
+          $roleBadge = ['admin_master'=>['badge-purple','Admin Master'],'admin'=>['badge-green','Admin'],'kontributor'=>['badge-blue','Kontributor'],'user'=>['badge-slate','Pengguna']];
+          [$bc,$bl] = $roleBadge[$role] ?? ['badge-slate','User'];
+          ?>
+          <span class="badge <?= $bc ?>"><?= $bl ?></span>
+        </div>
+        <p class="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mb-1">
+          <i data-lucide="at-sign" class="w-3.5 h-3.5"></i><?= htmlspecialchars($user['username']) ?>
+        </p>
+        <p class="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mb-1">
+          <i data-lucide="mail" class="w-3.5 h-3.5"></i><?= htmlspecialchars($user['email']) ?>
+        </p>
+        <?php if ($user['provinsi']): ?>
+        <p class="text-sm text-[var(--text-muted)] flex items-center gap-1.5 mb-1">
+          <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+          <?= htmlspecialchars($user['kota'] ? $user['kota'].', '.$user['provinsi'] : $user['provinsi']) ?>
+        </p>
+        <?php endif; ?>
+        <?php if ($user['bio']): ?>
+        <p class="text-sm text-[var(--text-secondary)] mt-2 leading-relaxed max-w-lg"><?= htmlspecialchars($user['bio']) ?></p>
+        <?php endif; ?>
+        <p class="text-[10px] text-[var(--text-muted)] mt-2">
+          Bergabung: <?= date('d F Y', strtotime($user['created_at'])) ?>
+          <?php if($user['last_login']): ?> · Login terakhir: <?= date('d/m/Y H:i', strtotime($user['last_login'])) ?><?php endif; ?>
+        </p>
+      </div>
+    </div>
+  </div>
 
-    'Bali' => [
-        'Kota Denpasar','Kab. Badung','Kab. Bangli','Kab. Buleleng',
-        'Kab. Gianyar','Kab. Jembrana','Kab. Karangasem','Kab. Klungkung','Kab. Tabanan',
-    ],
+  <!-- Statistik -->
+  <div id="statistik" class="grid grid-cols-3 gap-4 mb-6">
+    <div class="stat-card">
+      <div class="font-display font-black text-2xl text-[var(--text-primary)]"><?= $statLaporan ?></div>
+      <div class="text-xs text-[var(--text-muted)] mt-0.5">Total Laporan</div>
+    </div>
+    <div class="stat-card">
+      <div class="font-display font-black text-2xl text-brand-500"><?= $statApproved ?></div>
+      <div class="text-xs text-[var(--text-muted)] mt-0.5">Disetujui</div>
+    </div>
+    <div class="stat-card">
+      <div class="font-display font-black text-2xl text-blue-400"><?= $statArtikel ?></div>
+      <div class="text-xs text-[var(--text-muted)] mt-0.5">Artikel Dipublish</div>
+    </div>
+  </div>
 
-    'Aceh' => [
-        'Kota Banda Aceh','Kota Langsa','Kota Lhokseumawe','Kota Sabang','Kota Subulussalam',
-        'Kab. Aceh Besar','Kab. Aceh Selatan','Kab. Aceh Tengah','Kab. Aceh Timur',
-        'Kab. Aceh Utara','Kab. Bireuen','Kab. Pidie','Kab. Pidie Jaya',
-    ],
+  <!-- Form Edit Profil -->
+  <div id="edit-profil" class="section-card">
+    <div class="section-header">
+      <i data-lucide="pencil" class="w-4 h-4 text-brand-500"></i>
+      <h2 class="font-display font-bold text-[var(--text-primary)]">Edit Data Diri</h2>
+    </div>
+    <form method="POST" class="p-6 space-y-4">
+      <input type="hidden" name="aksi" value="update_profil"/>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Nama Lengkap</label>
+          <input type="text" name="nama_lengkap" class="input-field" value="<?= htmlspecialchars($user['nama_lengkap']??'') ?>" placeholder="Nama lengkap Anda" maxlength="120"/>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Email</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none"><i data-lucide="mail" class="w-4 h-4"></i></span>
+            <input type="email" name="email" class="input-field input-icon" value="<?= htmlspecialchars($user['email']??'') ?>" required maxlength="120"/>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Telepon</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none"><i data-lucide="phone" class="w-4 h-4"></i></span>
+            <input type="tel" name="telepon" class="input-field input-icon" value="<?= htmlspecialchars($user['telepon']??'') ?>" placeholder="08xx-xxxx-xxxx" maxlength="20"/>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Tanggal Lahir</label>
+          <input type="date" name="tgl_lahir" class="input-field" value="<?= htmlspecialchars($user['tgl_lahir']??'') ?>" style="color-scheme:dark light"/>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Provinsi</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none"><i data-lucide="map" class="w-4 h-4"></i></span>
+            <select id="selProvinsi" name="provinsi" class="input-field input-icon">
+              <option value="">— Pilih Provinsi —</option>
+              <?php foreach(PROVINSI_LIST as $p): ?>
+              <option value="<?= htmlspecialchars($p) ?>" <?= ($user['provinsi']??'')===$p?'selected':'' ?>><?= htmlspecialchars($p) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Kota / Kabupaten</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none"><i data-lucide="map-pin" class="w-4 h-4"></i></span>
+            <select id="selKota" name="kota" class="input-field input-icon">
+              <option value="<?= htmlspecialchars($user['kota']??'') ?>"><?= htmlspecialchars($user['kota'] ?: '— Pilih Provinsi dulu —') ?></option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Bio / Deskripsi Singkat</label>
+        <textarea name="bio" rows="3" class="input-field" placeholder="Ceritakan sedikit tentang diri Anda..." maxlength="500"><?= htmlspecialchars($user['bio']??'') ?></textarea>
+        <p class="text-[10px] text-[var(--text-muted)] mt-1">Maks. 500 karakter</p>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="flex items-center gap-2 px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-display font-bold rounded-xl text-sm transition shadow shadow-brand-600/20">
+          <i data-lucide="save" class="w-4 h-4"></i> Simpan Perubahan
+        </button>
+      </div>
+    </form>
+  </div>
 
-    'Sumatera Utara' => [
-        'Kota Medan','Kota Binjai','Kota Gunungsitoli','Kota Padangsidimpuan',
-        'Kota Pematangsiantar','Kota Sibolga','Kota Tanjungbalai','Kota Tebing Tinggi',
-        'Kab. Asahan','Kab. Deli Serdang','Kab. Karo','Kab. Langkat',
-        'Kab. Mandailing Natal','Kab. Nias','Kab. Simalungun','Kab. Tapanuli Selatan',
-        'Kab. Tapanuli Tengah','Kab. Tapanuli Utara','Kab. Toba',
-    ],
+  <!-- Form Ganti Password -->
+  <div id="ganti-password" class="section-card">
+    <div class="section-header">
+      <i data-lucide="lock" class="w-4 h-4 text-amber-400"></i>
+      <h2 class="font-display font-bold text-[var(--text-primary)]">Ganti Password</h2>
+    </div>
+    <form method="POST" class="p-6 space-y-4">
+      <input type="hidden" name="aksi" value="ganti_password"/>
+      <div class="flex items-start gap-3 p-4 rounded-xl bg-amber-500/6 border border-amber-500/20 mb-4">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5"></i>
+        <p class="text-xs text-[var(--text-secondary)] leading-relaxed">Gunakan password yang kuat — minimal 6 karakter, kombinasi huruf dan angka. Setelah ganti, gunakan password baru saat login berikutnya.</p>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Password Lama</label>
+        <div class="relative">
+          <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none"><i data-lucide="lock" class="w-4 h-4"></i></span>
+          <input id="pwLama" type="password" name="pw_lama" class="input-field input-icon pr-11" placeholder="••••••••" required autocomplete="current-password"/>
+          <button type="button" onclick="togglePassword('pwLama','btnLama')" id="btnLama" class="absolute inset-y-0 right-3.5 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
+            <i data-lucide="eye" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Password Baru</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none"><i data-lucide="key" class="w-4 h-4"></i></span>
+            <input id="pwBaru" type="password" name="pw_baru" class="input-field input-icon pr-11" placeholder="Min. 6 karakter" required minlength="6" autocomplete="new-password"/>
+            <button type="button" onclick="togglePassword('pwBaru','btnBaru')" id="btnBaru" class="absolute inset-y-0 right-3.5 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Konfirmasi Password Baru</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none"><i data-lucide="key" class="w-4 h-4"></i></span>
+            <input id="pwKonfirm" type="password" name="pw_konfirm" class="input-field input-icon pr-11" placeholder="Ulangi password baru" required autocomplete="new-password"/>
+            <button type="button" onclick="togglePassword('pwKonfirm','btnKonfirm')" id="btnKonfirm" class="absolute inset-y-0 right-3.5 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button type="submit" class="flex items-center gap-2 px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-white font-display font-bold rounded-xl text-sm transition shadow shadow-amber-500/20">
+          <i data-lucide="shield-check" class="w-4 h-4"></i> Ganti Password
+        </button>
+      </div>
+    </form>
+  </div>
 
-    'Sumatera Barat' => [
-        'Kota Padang','Kota Bukittinggi','Kota Padang Panjang',
-        'Kota Pariaman','Kota Payakumbuh','Kota Sawahlunto','Kota Solok',
-        'Kab. Agam','Kab. Lima Puluh Kota','Kab. Padang Pariaman','Kab. Pasaman',
-        'Kab. Pesisir Selatan','Kab. Sijunjung','Kab. Solok','Kab. Tanah Datar',
-    ],
+</div><!-- end prof-main -->
+</div><!-- end prof-wrap -->
 
-    'Riau' => [
-        'Kota Dumai','Kota Pekanbaru',
-        'Kab. Bengkalis','Kab. Indragiri Hilir','Kab. Indragiri Hulu',
-        'Kab. Kampar','Kab. Kuantan Singingi','Kab. Pelalawan',
-        'Kab. Rokan Hilir','Kab. Rokan Hulu','Kab. Siak',
-    ],
-
-    'Kepulauan Riau' => [
-        'Kota Batam','Kota Tanjungpinang',
-        'Kab. Bintan','Kab. Karimun','Kab. Kepulauan Anambas','Kab. Lingga','Kab. Natuna',
-    ],
-
-    'Jambi' => [
-        'Kota Jambi','Kota Sungai Penuh',
-        'Kab. Batanghari','Kab. Bungo','Kab. Kerinci','Kab. Merangin',
-        'Kab. Muaro Jambi','Kab. Sarolangun','Kab. Tebo',
-    ],
-
-    'Bengkulu' => [
-        'Kota Bengkulu',
-        'Kab. Bengkulu Selatan','Kab. Bengkulu Tengah','Kab. Bengkulu Utara',
-        'Kab. Kaur','Kab. Kepahiang','Kab. Lebong','Kab. Mukomuko',
-        'Kab. Rejang Lebong','Kab. Seluma',
-    ],
-
-    'Sumatera Selatan' => [
-        'Kota Lubuklinggau','Kota Pagar Alam','Kota Palembang','Kota Prabumulih',
-        'Kab. Banyuasin','Kab. Empat Lawang','Kab. Lahat','Kab. Muara Enim',
-        'Kab. Musi Banyuasin','Kab. Musi Rawas','Kab. Ogan Ilir',
-        'Kab. Ogan Komering Ilir','Kab. Ogan Komering Ulu',
-    ],
-
-    'Kepulauan Bangka Belitung' => [
-        'Kota Pangkalpinang',
-        'Kab. Bangka','Kab. Bangka Barat','Kab. Bangka Selatan','Kab. Bangka Tengah',
-        'Kab. Belitung','Kab. Belitung Timur',
-    ],
-
-    'Lampung' => [
-        'Kota Bandar Lampung','Kota Metro',
-        'Kab. Lampung Barat','Kab. Lampung Selatan','Kab. Lampung Tengah',
-        'Kab. Lampung Timur','Kab. Lampung Utara','Kab. Pesawaran',
-        'Kab. Pringsewu','Kab. Tanggamus','Kab. Way Kanan',
-    ],
-
-    'Kalimantan Barat' => [
-        'Kota Pontianak','Kota Singkawang',
-        'Kab. Bengkayang','Kab. Kapuas Hulu','Kab. Ketapang','Kab. Kubu Raya',
-        'Kab. Landak','Kab. Melawi','Kab. Mempawah','Kab. Sambas',
-        'Kab. Sanggau','Kab. Sekadau','Kab. Sintang',
-    ],
-
-    'Kalimantan Tengah' => [
-        'Kota Palangka Raya',
-        'Kab. Barito Selatan','Kab. Barito Timur','Kab. Barito Utara',
-        'Kab. Gunung Mas','Kab. Kapuas','Kab. Katingan',
-        'Kab. Kotawaringin Barat','Kab. Kotawaringin Timur',
-        'Kab. Murung Raya','Kab. Pulang Pisau','Kab. Seruyan','Kab. Sukamara',
-    ],
-
-    'Kalimantan Selatan' => [
-        'Kota Banjarbaru','Kota Banjarmasin',
-        'Kab. Balangan','Kab. Banjar','Kab. Barito Kuala',
-        'Kab. Hulu Sungai Selatan','Kab. Hulu Sungai Tengah','Kab. Hulu Sungai Utara',
-        'Kab. Kotabaru','Kab. Tabalong','Kab. Tanah Bumbu','Kab. Tanah Laut','Kab. Tapin',
-    ],
-
-    'Kalimantan Timur' => [
-        'Kota Balikpapan','Kota Bontang','Kota Samarinda',
-        'Kab. Berau','Kab. Kutai Barat','Kab. Kutai Kartanegara',
-        'Kab. Kutai Timur','Kab. Mahakam Ulu','Kab. Paser','Kab. Penajam Paser Utara',
-    ],
-
-    'Kalimantan Utara' => [
-        'Kota Tarakan',
-        'Kab. Bulungan','Kab. Malinau','Kab. Nunukan','Kab. Tana Tidung',
-    ],
-
-    'Sulawesi Utara' => [
-        'Kota Bitung','Kota Kotamobagu','Kota Manado','Kota Tomohon',
-        'Kab. Bolaang Mongondow','Kab. Kepulauan Sangihe',
-        'Kab. Kepulauan Talaud','Kab. Minahasa','Kab. Minahasa Selatan',
-        'Kab. Minahasa Tenggara','Kab. Minahasa Utara',
-    ],
-
-    'Gorontalo' => [
-        'Kota Gorontalo',
-        'Kab. Boalemo','Kab. Bone Bolango','Kab. Gorontalo',
-        'Kab. Gorontalo Utara','Kab. Pohuwato',
-    ],
-
-    'Sulawesi Tengah' => [
-        'Kota Palu',
-        'Kab. Banggai','Kab. Buol','Kab. Donggala','Kab. Morowali',
-        'Kab. Parigi Moutong','Kab. Poso','Kab. Sigi','Kab. Tolitoli',
-    ],
-
-    'Sulawesi Barat' => [
-        'Kab. Majene','Kab. Mamasa','Kab. Mamuju',
-        'Kab. Mamuju Tengah','Kab. Pasangkayu','Kab. Polewali Mandar',
-    ],
-
-    'Sulawesi Selatan' => [
-        'Kota Makassar','Kota Palopo','Kota Parepare',
-        'Kab. Bantaeng','Kab. Barru','Kab. Bone','Kab. Bulukumba',
-        'Kab. Enrekang','Kab. Gowa','Kab. Jeneponto','Kab. Luwu',
-        'Kab. Luwu Timur','Kab. Luwu Utara','Kab. Maros','Kab. Pinrang',
-        'Kab. Sidenreng Rappang','Kab. Sinjai','Kab. Soppeng',
-        'Kab. Takalar','Kab. Tana Toraja','Kab. Toraja Utara','Kab. Wajo',
-    ],
-
-    'Sulawesi Tenggara' => [
-        'Kota Baubau','Kota Kendari',
-        'Kab. Bombana','Kab. Buton','Kab. Kolaka','Kab. Konawe',
-        'Kab. Konawe Selatan','Kab. Konawe Utara','Kab. Muna','Kab. Wakatobi',
-    ],
-
-    'Maluku' => [
-        'Kota Ambon','Kota Tual',
-        'Kab. Buru','Kab. Kepulauan Aru','Kab. Maluku Tengah',
-        'Kab. Maluku Tenggara','Kab. Seram Bagian Barat','Kab. Seram Bagian Timur',
-    ],
-
-    'Maluku Utara' => [
-        'Kota Ternate','Kota Tidore Kepulauan',
-        'Kab. Halmahera Barat','Kab. Halmahera Selatan','Kab. Halmahera Tengah',
-        'Kab. Halmahera Timur','Kab. Halmahera Utara','Kab. Kepulauan Sula',
-        'Kab. Pulau Morotai','Kab. Pulau Taliabu',
-    ],
-
-    'Papua' => [
-        'Kota Jayapura',
-        'Kab. Asmat','Kab. Biak Numfor','Kab. Boven Digoel','Kab. Jayapura',
-        'Kab. Jayawijaya','Kab. Keerom','Kab. Merauke','Kab. Mimika',
-        'Kab. Nabire','Kab. Sarmi','Kab. Tolikara','Kab. Waropen','Kab. Yahukimo',
-    ],
-
-    'Papua Barat' => [
-        'Kota Sorong',
-        'Kab. Fakfak','Kab. Kaimana','Kab. Manokwari','Kab. Manokwari Selatan',
-        'Kab. Maybrat','Kab. Raja Ampat','Kab. Sorong','Kab. Tambrauw',
-        'Kab. Teluk Bintuni','Kab. Teluk Wondama',
-    ],
-
-    'Papua Selatan'    => ['Kab. Asmat','Kab. Boven Digoel','Kab. Mappi','Kab. Merauke'],
-    'Papua Tengah'     => ['Kab. Deiyai','Kab. Dogiyai','Kab. Intan Jaya','Kab. Mimika','Kab. Nabire','Kab. Paniai','Kab. Puncak','Kab. Puncak Jaya'],
-    'Papua Pegunungan' => ['Kab. Jayawijaya','Kab. Lanny Jaya','Kab. Mamberamo Tengah','Kab. Nduga','Kab. Pegunungan Bintang','Kab. Tolikara','Kab. Yahukimo','Kab. Yalimo'],
-    'Papua Barat Daya' => ['Kota Sorong','Kab. Maybrat','Kab. Raja Ampat','Kab. Sorong','Kab. Sorong Selatan','Kab. Tambraw'],
-
-    'Nusa Tenggara Barat' => [
-        'Kota Bima','Kota Mataram',
-        'Kab. Bima','Kab. Dompu','Kab. Lombok Barat','Kab. Lombok Tengah',
-        'Kab. Lombok Timur','Kab. Lombok Utara','Kab. Sumbawa','Kab. Sumbawa Barat',
-    ],
-
-    'Nusa Tenggara Timur' => [
-        'Kota Kupang',
-        'Kab. Alor','Kab. Belu','Kab. Ende','Kab. Flores Timur','Kab. Kupang',
-        'Kab. Lembata','Kab. Malaka','Kab. Manggarai','Kab. Manggarai Barat',
-        'Kab. Manggarai Timur','Kab. Nagekeo','Kab. Ngada','Kab. Rote Ndao',
-        'Kab. Sabu Raijua','Kab. Sikka','Kab. Sumba Barat','Kab. Sumba Barat Daya',
-        'Kab. Sumba Tengah','Kab. Sumba Timur','Kab. Timor Tengah Selatan',
-        'Kab. Timor Tengah Utara',
-    ],
-]);
-
-/**
- * getKotaByProvinsi() — Ambil daftar kota untuk provinsi tertentu
- */
-function getKotaByProvinsi(string $provinsi): array {
-    $map = PROVINSI_KOTA;
-    return $map[$provinsi] ?? [];
-}
+<script>
+window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
+</script>
+<script src="/scripts.js"></script>
+<script>
+lucide.createIcons();
+// Province-city cascade for profil form
+(function(){
+  const ps = document.getElementById('selProvinsi');
+  const ks = document.getElementById('selKota');
+  const curKota = <?= json_encode($user['kota']??'') ?>;
+  if(!ps||!ks) return;
+  function update(sel){
+    const cities=(window.PROVINSI_KOTA_JS||{})[ps.value]||[];
+    ks.innerHTML='';
+    const ph=document.createElement('option');
+    ph.value=''; ph.textContent=cities.length?'— Pilih Kota —':'— (pilih provinsi dulu) —';
+    ks.appendChild(ph);
+    cities.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c; o.textContent=c;
+      if(sel&&c===sel) o.selected=true;
+      ks.appendChild(o);
+    });
+    ks.disabled=!cities.length;
+  }
+  if(ps.value) update(curKota);
+  ps.addEventListener('change',()=>update(''));
+})();
+</script>
+</body>
+</html>

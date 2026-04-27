@@ -16,30 +16,7 @@ $pageDesc  = 'Masuk ke panel InfoHarga Komoditi.';
 <html lang="id">
 <head>
 <?php include __DIR__ . '/Assets/head.php'; ?>
-<style>
-/*
- * FIX DARK MODE BACKGROUND:
- * Masalah lama: .auth-bg hanya mendeklarasikan gradient tanpa base color,
- * sehingga body background dari head.php (var(--bg-primary)) tertimpa.
- *
- * Solusi: gunakan background-color dari var(--bg-primary) sebagai base,
- * lalu overlay gradient di atasnya dengan background-image.
- */
-body {
-  background-color: var(--bg-primary) !important;
-  background-image:
-    radial-gradient(ellipse 70% 60% at 30% 40%, rgba(16,185,129,.08) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 50% at 80% 70%, rgba(20,184,166,.06) 0%, transparent 50%);
-  background-attachment: fixed;
-  transition: background-color .25s !important;
-}
-/* Dark mode: gradient lebih subtle agar kontras dengan bg gelap */
-.dark body, html.dark body {
-  background-image:
-    radial-gradient(ellipse 70% 60% at 30% 40%, rgba(16,185,129,.05) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 50% at 80% 70%, rgba(20,184,166,.04) 0%, transparent 50%);
-}
-</style>
+<link rel="stylesheet" href="Assets/login.css">
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 

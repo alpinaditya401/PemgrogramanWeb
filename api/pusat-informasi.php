@@ -1,328 +1,251 @@
 <?php
 /**
- * bps-sync.php — Halaman Sinkronisasi Data dari API BPS
- * ─────────────────────────────────────────────────────────────
- * Hanya admin_master yang bisa akses.
- *
- * FITUR:
- * 1. Tampilkan daftar 38 provinsi dari BPS API (live)
- * 2. Sync data harga komoditas per provinsi ke database
- * 3. Preview data sebelum disimpan
- * 4. Log hasil sinkronisasi
- * ─────────────────────────────────────────────────────────────
+ * pusat-informasi.php — Pengaturan Pengumuman Global & API Gateway
  */
-if (!isset($_SESSION['login'])) { header("Location: login.php"); exit; }
-if ($_SESSION['role'] !== 'admin_master') { header("Location: dashboard.php"); exit; }
-
 require __DIR__ . '/Server/koneksi.php';
-require_once __DIR__ . '/Server/bps_api.php';
 
-$pageTitle = 'Sinkronisasi Data BPS';
-$bps       = new BPS_API(BPS_API_KEY);
-$myId      = (int)$_SESSION['user_id'];
-
-$provinces = [];
-$preview   = [];
-$syncResult = null;
-$error     = '';
-
-// ── LOAD DAFTAR PROVINSI DARI BPS ────────────────────────────
-$provinces = $bps->getProvinces();
-if (empty($provinces)) {
-    // Fallback: gunakan data hardcoded jika API tidak merespons
-    $provinces = array_map(fn($name) => [
-        'domain_id'   => BPS_API::getDomainIdByProvinsi($name),
-        'domain_name' => $name,
-        'domain_url'  => '',
-    ], array_keys(PROVINSI_KOTA));
+// 1. KEAMANAN SANGAT KETAT: Hanya Admin Master yang boleh mengakses konfigurasi API
+if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'admin_master') {
+    header("Location: dashboard-master.php?pesan=akses_ditolak");
+    exit;
 }
 
-// ── PREVIEW DATA DARI BPS ─────────────────────────────────────
-if (isset($_GET['preview'])) {
-    $domainId    = htmlspecialchars($_GET['preview']);
-    $provinsiName= htmlspecialchars($_GET['provinsi'] ?? '');
-    $preview     = $bps->getKomoditasHarga($domainId);
+$pesan = "";
 
-    // Jika API tidak merespons, tampilkan error ramah
-    if (empty($preview)) {
-        $error = "Tidak ada data dari BPS untuk domain $domainId. "
-               . "Pastikan koneksi internet tersedia dan API key valid.";
+// --- FUNGSI BANTUAN UNTUK MENGAMBIL DATA ---
+function getInfo($conn, $tipe) {
+    $query = mysqli_query($conn, "SELECT * FROM pusat_informasi WHERE tipe='$tipe' LIMIT 1");
+    return mysqli_fetch_assoc($query);
+}
+
+// 2. PROSES POST: SIMPAN PENGUMUMAN
+if (isset($_POST['simpan_pengumuman'])) {
+    $isi_data = mysqli_real_escape_string($conn, $_POST['isi_pengumuman']);
+    $status = mysqli_real_escape_string($conn, $_POST['status_pengumuman']);
+    
+    $cek = getInfo($conn, 'pengumuman');
+    if ($cek) {
+        $q = "UPDATE pusat_informasi SET isi_data='$isi_data', status='$status' WHERE tipe='pengumuman'";
+    } else {
+        $q = "INSERT INTO pusat_informasi (tipe, judul, isi_data, status) VALUES ('pengumuman', 'Pengumuman Sistem', '$isi_data', '$status')";
     }
+    
+    if(mysqli_query($conn, $q)) $pesan = "success|Pengumuman berhasil diperbarui!";
+    else $pesan = "error|Gagal memperbarui pengumuman.";
 }
 
-// ── SINKRONISASI KE DATABASE ──────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync'])) {
-    $domainId    = esc($conn, $_POST['domain_id']);
-    $provinsiName= esc($conn, $_POST['provinsi_name']);
-    $lokasiName  = esc($conn, $_POST['lokasi_name']  ?? $provinsiName);
+// 3. PROSES POST: SIMPAN SMS GATEWAY (Disimpan sebagai JSON)
+if (isset($_POST['simpan_sms'])) {
+    $api_key = $_POST['sms_api_key'];
+    $sender = $_POST['sms_sender'];
+    
+    // Format menjadi JSON array
+    $json_data = mysqli_real_escape_string($conn, json_encode([
+        'api_key' => $api_key,
+        'sender' => $sender
+    ]));
+    $status = $_POST['status_sms'];
 
-    $syncResult = $bps->syncKomoditasToDB($conn, $domainId, $provinsiName, $lokasiName);
-
-    // Log ke tabel pengaturan_sistem
-    $logMsg = esc($conn, "Sync BPS {$provinsiName} ({$domainId}): {$syncResult['inserted']} inserted, {$syncResult['updated']} updated — " . date('Y-m-d H:i:s'));
-    $conn->query("INSERT INTO pengaturan_sistem (kunci, nilai, label, kelompok, tipe)
-                  VALUES ('bps_last_sync_" . time() . "','$logMsg','Log Sinkronisasi BPS','Log BPS','text')
-                  ON DUPLICATE KEY UPDATE nilai='$logMsg'");
-}
-
-// ── SYNC SEMUA SEKALIGUS ──────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_all'])) {
-    $totalIns = 0; $totalUpd = 0;
-    // Sync hanya beberapa provinsi utama agar tidak timeout
-    $mainDomains = [
-        ['0000','Nasional','Indonesia'],
-        ['3100','DKI Jakarta','Jakarta Pusat'],
-        ['3200','Jawa Barat','Kota Bandung'],
-        ['3300','Jawa Tengah','Kota Semarang'],
-        ['3500','Jawa Timur','Kota Surabaya'],
-        ['3600','Banten','Kota Serang'],
-        ['5100','Bali','Kota Denpasar'],
-        ['1200','Sumatera Utara','Kota Medan'],
-        ['7300','Sulawesi Selatan','Kota Makassar'],
-    ];
-    $allResults = [];
-    foreach ($mainDomains as [$did, $prov, $lok]) {
-        $r = $bps->syncKomoditasToDB($conn, $did, $prov, $lok);
-        $totalIns += $r['inserted'];
-        $totalUpd += $r['updated'];
-        $allResults[] = "✓ {$prov}: {$r['inserted']} baru, {$r['updated']} update";
+    $cek = getInfo($conn, 'sms_gateway_api');
+    if ($cek) {
+        $q = "UPDATE pusat_informasi SET isi_data='$json_data', status='$status' WHERE tipe='sms_gateway_api'";
+    } else {
+        $q = "INSERT INTO pusat_informasi (tipe, judul, isi_data, status) VALUES ('sms_gateway_api', 'Konfigurasi SMS', '$json_data', '$status')";
     }
-    $syncResult = [
-        'inserted' => $totalIns,
-        'updated'  => $totalUpd,
-        'total'    => $totalIns + $totalUpd,
-        'detail'   => $allResults,
-        'errors'   => [],
-    ];
+    
+    if(mysqli_query($conn, $q)) $pesan = "success|Konfigurasi SMS Gateway tersimpan!";
 }
+
+// 4. PROSES POST: SIMPAN EMAIL GATEWAY (SMTP)
+if (isset($_POST['simpan_email'])) {
+    $json_data = mysqli_real_escape_string($conn, json_encode([
+        'host' => $_POST['smtp_host'],
+        'port' => $_POST['smtp_port'],
+        'user' => $_POST['smtp_user'],
+        'pass' => $_POST['smtp_pass']
+    ]));
+    $status = $_POST['status_email'];
+
+    $cek = getInfo($conn, 'email_gateway_api');
+    if ($cek) {
+        $q = "UPDATE pusat_informasi SET isi_data='$json_data', status='$status' WHERE tipe='email_gateway_api'";
+    } else {
+        $q = "INSERT INTO pusat_informasi (tipe, judul, isi_data, status) VALUES ('email_gateway_api', 'Konfigurasi Email', '$json_data', '$status')";
+    }
+    
+    if(mysqli_query($conn, $q)) $pesan = "success|Konfigurasi Email SMTP tersimpan!";
+}
+
+// AMBIL DATA TERKINI UNTUK DITAMPILKAN DI FORM
+$data_pengumuman = getInfo($conn, 'pengumuman');
+$data_sms = getInfo($conn, 'sms_gateway_api');
+$data_email = getInfo($conn, 'email_gateway_api');
+
+// Decode JSON untuk SMS dan Email agar bisa diisi ke input value
+$sms_config = $data_sms ? json_decode($data_sms['isi_data'], true) : ['api_key'=>'', 'sender'=>''];
+$email_config = $data_email ? json_decode($data_email['isi_data'], true) : ['host'=>'', 'port'=>'', 'user'=>'', 'pass'=>''];
 ?>
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="id">
-<head><?php include __DIR__ . '/Assets/head.php'; ?>
-<style>
-  body{font-family:'Instrument Sans',sans-serif;}
-  .prov-card{transition:border-color .15s,background .15s;}
-  .prov-card:hover{border-color:rgba(16,185,129,.3);background:var(--bg-card-hover);}
-  .status-dot-ok{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;}
-  .status-dot-no{width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block;}
-</style>
+<head>
+    <?php 
+    $pageTitle = "Pusat Informasi & Gateway";
+    include __DIR__ . '/Assets/head.php'; 
+    ?>
 </head>
-<body class="bg-[var(--bg-primary)] min-h-screen">
+<body class="bg-[var(--bg-secondary)] text-[var(--text-primary)]">
 
-<!-- Back bar -->
-<div class="h-12 bg-[var(--bg-secondary)] border-b border-[var(--border)] flex items-center px-6 gap-4">
-  <a href="dashboard-master.php?tab=bps" class="flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
-    <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali ke Master Panel
-  </a>
-  <span class="text-[var(--border)]">|</span>
-  <h1 class="font-display font-black text-sm text-[var(--text-primary)]">
-    🔄 Sinkronisasi Data Komoditas dari BPS
-  </h1>
-  <div class="ml-auto">
-    <button data-action="toggle-theme" class="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
-      <i data-lucide="moon" data-theme-icon="toggle" class="w-3.5 h-3.5"></i>
-    </button>
-  </div>
-</div>
+    <?php include __DIR__ . '/Assets/navbar.php'; ?>
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex min-h-screen pt-24">
+        <aside class="w-64 hidden lg:block border-r border-[var(--border)] p-6 space-y-2">
+            <h3 class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-4">Menu Master</h3>
+            <a href="dashboard-master.php" class="sidebar-nav flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--surface)] transition">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                <span class="font-medium">Manajemen User</span>
+            </a>
+            <a href="kelola-artikel.php" class="sidebar-nav flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--surface)] transition">
+                <i data-lucide="file-text" class="w-5 h-5"></i>
+                <span class="font-medium">Kelola Artikel</span>
+            </a>
+            <a href="pusat-informasi.php" class="sidebar-nav active flex items-center gap-3 p-3 rounded-xl bg-brand-500/10 text-brand-500">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+                <span class="font-medium">Pengaturan Sistem</span>
+            </a>
+        </aside>
 
-  <!-- Header info -->
-  <div class="card p-5 mb-8 border-brand-500/20 bg-brand-500/4">
-    <div class="flex items-start gap-4">
-      <div class="w-10 h-10 bg-brand-500/15 rounded-xl flex items-center justify-center flex-shrink-0">
-        <i data-lucide="database" class="w-5 h-5 text-brand-500"></i>
-      </div>
-      <div class="flex-1">
-        <h2 class="font-display font-bold text-[var(--text-primary)] mb-1">
-          Web API BPS — Harga Eceran Rata-Rata Komoditas (var=2310)
-        </h2>
-        <p class="text-sm text-[var(--text-secondary)] leading-relaxed mb-3">
-          Data ini bersumber langsung dari Badan Pusat Statistik Indonesia.
-          Variabel <code class="bg-[var(--surface)] px-1.5 py-0.5 rounded text-xs">2310</code>
-          berisi harga eceran rata-rata komoditas pangan tahun 2024 (kode BPS: th=126).
-        </p>
-        <div class="flex flex-wrap gap-2 text-xs">
-          <span class="px-2.5 py-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] font-mono text-[var(--text-muted)]">
-            API Key: <?= substr(BPS_API_KEY,0,8) ?>...
-          </span>
-          <a href="<?= $bps->buildApiUrl('province') ?>" target="_blank" rel="noopener"
-             class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/15 transition">
-            <i data-lucide="external-link" class="w-3 h-3"></i> API Provinsi
-          </a>
-          <a href="<?= $bps->buildApiUrl('komoditas','0000') ?>" target="_blank" rel="noopener"
-             class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-500 hover:bg-brand-500/15 transition">
-            <i data-lucide="external-link" class="w-3 h-3"></i> API Komoditas (Nasional)
-          </a>
-        </div>
-      </div>
+        <main class="flex-1 p-6 lg:p-10">
+            <div class="max-w-4xl mx-auto">
+                
+                <div class="mb-8">
+                    <h1 class="text-3xl font-display font-bold">Pusat Informasi & Gateway</h1>
+                    <p class="text-[var(--text-muted)]">Atur pengumuman dashboard dan integrasi pengiriman pesan.</p>
+                </div>
+
+                <?php if ($pesan): 
+                    $p = explode('|', $pesan);
+                    $bgColor = $p[0] == 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+                ?>
+                <div class="<?= $bgColor ?> p-4 rounded-xl mb-6 flex items-center gap-3">
+                    <i data-lucide="<?= $p[0] == 'success' ? 'check-circle' : 'alert-circle' ?>" class="w-5 h-5"></i>
+                    <p class="font-medium"><?= htmlspecialchars($p[1]) ?></p>
+                </div>
+                <?php endif; ?>
+
+                <div class="space-y-6">
+                    
+                    <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+                        <div class="flex justify-between items-center mb-5">
+                            <div class="flex items-center gap-3 text-yellow-500">
+                                <i data-lucide="megaphone" class="w-6 h-6"></i>
+                                <h2 class="font-bold text-lg text-[var(--text-primary)]">Pengumuman Dashboard User</h2>
+                            </div>
+                        </div>
+                        <form action="" method="POST" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Isi Pengumuman</label>
+                                <textarea name="isi_pengumuman" rows="3" required placeholder="Ketik pengumuman penting di sini..."
+                                          class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none"><?= htmlspecialchars($data_pengumuman['isi_data'] ?? '') ?></textarea>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <label class="text-sm font-medium">Status Tampil:</label>
+                                    <select name="status_pengumuman" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm outline-none">
+                                        <option value="aktif" <?= ($data_pengumuman['status']??'') == 'aktif' ? 'selected' : '' ?>>Aktif (Tampilkan)</option>
+                                        <option value="nonaktif" <?= ($data_pengumuman['status']??'') == 'nonaktif' ? 'selected' : '' ?>>Nonaktif (Sembunyikan)</option>
+                                    </select>
+                                </div>
+                                <button type="submit" name="simpan_pengumuman" class="bg-gray-800 hover:bg-gray-700 text-white font-bold px-6 py-2 rounded-xl transition flex items-center gap-2">
+                                    <i data-lucide="save" class="w-4 h-4"></i> Simpan
+                               </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+                            <div class="flex items-center gap-3 mb-5 text-blue-500">
+                                <i data-lucide="message-square" class="w-6 h-6"></i>
+                                <h2 class="font-bold text-lg text-[var(--text-primary)]">Konfigurasi SMS API</h2>
+                            </div>
+                            <form action="" method="POST" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">API Key Service (Contoh: Twilio/Zenziva)</label>
+                                    <input type="password" name="sms_api_key" value="<?= htmlspecialchars($sms_config['api_key'] ?? '') ?>"
+                                           class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Sender ID / Masking</label>
+                                    <input type="text" name="sms_sender" value="<?= htmlspecialchars($sms_config['sender'] ?? '') ?>" placeholder="Cth: INFOHARGA"
+                                           class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+                                </div>
+                                
+                                <div class="pt-2 border-t border-[var(--border)] flex justify-between items-center">
+                                    <select name="status_sms" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs outline-none">
+                                        <option value="aktif" <?= ($data_sms['status']??'') == 'aktif' ? 'selected' : '' ?>>Aktif</option>
+                                        <option value="nonaktif" <?= ($data_sms['status']??'') == 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
+                                    </select>
+                                    <button type="submit" name="simpan_sms" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-4 py-2 rounded-xl transition">
+                                        Simpan SMS
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
+                            <div class="flex items-center gap-3 mb-5 text-brand-500">
+                                <i data-lucide="mail" class="w-6 h-6"></i>
+                                <h2 class="font-bold text-lg text-[var(--text-primary)]">Konfigurasi SMTP Email</h2>
+                            </div>
+                            <form action="" method="POST" class="space-y-4">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">SMTP Host</label>
+                                        <input type="text" name="smtp_host" value="<?= htmlspecialchars($email_config['host'] ?? '') ?>" placeholder="smtp.mail.com"
+                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Port</label>
+                                        <input type="number" name="smtp_port" value="<?= htmlspecialchars($email_config['port'] ?? '') ?>" placeholder="465 / 587"
+                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Email User</label>
+                                        <input type="email" name="smtp_user" value="<?= htmlspecialchars($email_config['user'] ?? '') ?>" placeholder="admin@domain.com"
+                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Password</label>
+                                        <input type="password" name="smtp_pass" value="<?= htmlspecialchars($email_config['pass'] ?? '') ?>" placeholder="••••••••"
+                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
+                                    </div>
+                                </div>
+                                
+                                <div class="pt-2 border-t border-[var(--border)] flex justify-between items-center">
+                                    <select name="status_email" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs outline-none">
+                                        <option value="aktif" <?= ($data_email['status']??'') == 'aktif' ? 'selected' : '' ?>>Aktif</option>
+                                        <option value="nonaktif" <?= ($data_email['status']??'') == 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
+                                    </select>
+                                    <button type="submit" name="simpan_email" class="bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold px-4 py-2 rounded-xl transition">
+                                        Simpan SMTP
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        </main>
     </div>
-  </div>
 
-  <!-- Sync All button -->
-  <div class="card p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-    <div>
-      <h3 class="font-display font-bold text-[var(--text-primary)] mb-1">Sinkronisasi Massal</h3>
-      <p class="text-xs text-[var(--text-muted)]">Sync otomatis 9 provinsi utama: Nasional, DKI Jakarta, Jawa Barat, Jawa Tengah, Jawa Timur, Banten, Bali, Sumatera Utara, Sulawesi Selatan.</p>
-    </div>
-    <form method="POST">
-      <button type="submit" name="sync_all"
-              onclick="return confirm('Sinkronisasi massal dari BPS?\nIni akan memakan waktu 30-60 detik.')"
-              class="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-sm transition shadow shadow-brand-600/20 font-display whitespace-nowrap">
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync 9 Provinsi Utama
-      </button>
-    </form>
-  </div>
-
-  <!-- Sync result -->
-  <?php if ($syncResult): ?>
-  <div class="card p-5 mb-6 border-brand-500/20 bg-brand-500/4">
-    <div class="flex items-center gap-3 mb-3">
-      <i data-lucide="check-circle" class="w-5 h-5 text-brand-500 flex-shrink-0"></i>
-      <h3 class="font-display font-bold text-[var(--text-primary)]">Sinkronisasi Selesai!</h3>
-    </div>
-    <div class="grid grid-cols-3 gap-4 mb-4">
-      <div class="p-3 rounded-xl bg-brand-500/8 border border-brand-500/20 text-center">
-        <div class="font-display font-black text-2xl text-brand-500"><?= $syncResult['inserted'] ?></div>
-        <div class="text-xs text-[var(--text-muted)]">Data Baru</div>
-      </div>
-      <div class="p-3 rounded-xl bg-blue-500/8 border border-blue-500/20 text-center">
-        <div class="font-display font-black text-2xl text-blue-400"><?= $syncResult['updated'] ?></div>
-        <div class="text-xs text-[var(--text-muted)]">Data Diperbarui</div>
-      </div>
-      <div class="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-center">
-        <div class="font-display font-black text-2xl text-[var(--text-primary)]"><?= $syncResult['total'] ?></div>
-        <div class="text-xs text-[var(--text-muted)]">Total Diproses</div>
-      </div>
-    </div>
-    <?php if (!empty($syncResult['detail'])): ?>
-    <div class="space-y-1">
-      <?php foreach ($syncResult['detail'] as $d): ?>
-      <div class="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
-        <span class="status-dot-ok"></span> <?= htmlspecialchars($d) ?>
-      </div>
-      <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-    <?php if (!empty($syncResult['errors'])): ?>
-    <div class="mt-3 text-xs text-red-400">
-      Error: <?= implode(', ', array_map('htmlspecialchars', $syncResult['errors'])) ?>
-    </div>
-    <?php endif; ?>
-  </div>
-  <?php endif; ?>
-
-  <!-- Error -->
-  <?php if ($error): ?>
-  <div class="msg-error mb-6 flex items-center gap-3">
-    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
-    <?= htmlspecialchars($error) ?>
-  </div>
-  <?php endif; ?>
-
-  <!-- Preview data -->
-  <?php if (!empty($preview) && isset($_GET['preview'])): ?>
-  <div class="card overflow-hidden mb-8">
-    <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
-      <h3 class="font-display font-bold text-[var(--text-primary)] flex items-center gap-2">
-        <i data-lucide="eye" class="w-4 h-4 text-brand-500"></i>
-        Preview: <?= count($preview) ?> komoditas dari <strong><?= htmlspecialchars($_GET['provinsi']??'') ?></strong>
-      </h3>
-      <!-- Form Sync untuk provinsi ini -->
-      <form method="POST" class="flex items-center gap-2">
-        <input type="hidden" name="domain_id"     value="<?= htmlspecialchars($_GET['preview']) ?>"/>
-        <input type="hidden" name="provinsi_name" value="<?= htmlspecialchars($_GET['provinsi']??'') ?>"/>
-        <input type="hidden" name="lokasi_name"   value="<?= htmlspecialchars($_GET['provinsi']??'') ?>"/>
-        <button type="submit" name="sync"
-                class="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg text-sm transition font-display">
-          <i data-lucide="download" class="w-3.5 h-3.5"></i> Simpan ke Database
-        </button>
-      </form>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="data-table">
-        <thead><tr><th>Nama Komoditas</th><th>Kategori</th><th>Harga (Rp)</th><th>Satuan</th></tr></thead>
-        <tbody>
-          <?php foreach ($preview as $item): ?>
-          <tr>
-            <td class="font-semibold text-[var(--text-primary)]"><?= htmlspecialchars($item['nama']) ?></td>
-            <td><span class="badge badge-slate text-[10px]"><?= htmlspecialchars($item['kategori']) ?></span></td>
-            <td class="font-display font-bold text-brand-500"><?= rupiah($item['harga']) ?></td>
-            <td class="text-[var(--text-muted)] text-xs"><?= htmlspecialchars($item['satuan']) ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-  </div>
-  <?php endif; ?>
-
-  <!-- Daftar provinsi -->
-  <div>
-    <h3 class="font-display font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-      <i data-lucide="map" class="w-4 h-4 text-brand-500"></i>
-      Daftar Provinsi (<?= count($provinces) ?> domain BPS)
-    </h3>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <!-- Tambah Nasional/Pusat -->
-      <div class="card prov-card p-4 flex items-center justify-between gap-3">
-        <div>
-          <div class="font-bold text-[var(--text-primary)] text-sm">🏛️ Nasional (Pusat)</div>
-          <div class="text-[10px] text-[var(--text-muted)] mt-0.5">domain_id: 0000</div>
-        </div>
-        <div class="flex gap-2">
-          <a href="?preview=0000&provinsi=Nasional"
-             class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/15 transition">
-            <i data-lucide="eye" class="w-3 h-3"></i> Preview
-          </a>
-          <form method="POST">
-            <input type="hidden" name="domain_id"     value="0000"/>
-            <input type="hidden" name="provinsi_name" value="Nasional"/>
-            <input type="hidden" name="lokasi_name"   value="Indonesia"/>
-            <button name="sync" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-brand-500/10 border border-brand-500/20 text-brand-500 hover:bg-brand-500/15 transition">
-              <i data-lucide="download" class="w-3 h-3"></i> Sync
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <?php foreach ($provinces as $prov):
-        $did  = $prov['domain_id']   ?? '';
-        $name = $prov['domain_name'] ?? '';
-        if (!$did || !$name) continue;
-        $isPreviewing = (($_GET['preview'] ?? '') === $did);
-      ?>
-      <div class="card prov-card p-4 flex items-center justify-between gap-3 <?= $isPreviewing?'border-brand-500/30 bg-brand-500/4':'' ?>">
-        <div>
-          <div class="font-bold text-[var(--text-primary)] text-sm"><?= htmlspecialchars($name) ?></div>
-          <div class="text-[10px] text-[var(--text-muted)] mt-0.5">domain_id: <?= htmlspecialchars($did) ?></div>
-        </div>
-        <div class="flex gap-2 flex-shrink-0">
-          <a href="?preview=<?= urlencode($did) ?>&provinsi=<?= urlencode($name) ?>"
-             class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold
-                    bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/15 transition">
-            <i data-lucide="eye" class="w-3 h-3"></i> Preview
-          </a>
-          <form method="POST">
-            <input type="hidden" name="domain_id"     value="<?= htmlspecialchars($did) ?>"/>
-            <input type="hidden" name="provinsi_name" value="<?= htmlspecialchars($name) ?>"/>
-            <input type="hidden" name="lokasi_name"   value="<?= htmlspecialchars($name) ?>"/>
-            <button name="sync"
-                    class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold
-                           bg-brand-500/10 border border-brand-500/20 text-brand-500 hover:bg-brand-500/15 transition">
-              <i data-lucide="download" class="w-3 h-3"></i> Sync
-            </button>
-          </form>
-        </div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </div>
-
-</div><!-- end container -->
-
-<script src="/scripts.js"></script>
-<script>lucide.createIcons();</script>
+    <script src="/scripts.js"></script>
+    <script>lucide.createIcons();</script>
 </body>
 </html>

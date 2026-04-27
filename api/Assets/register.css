@@ -1,0 +1,42 @@
+/* CSS extracted from register.php */
+
+/*
+ * FIX DARK MODE BACKGROUND — sama seperti login.php
+ * Gunakan background-color dari CSS var agar ikut berganti tema
+ */
+body {
+  background-color: var(--bg-primary) !important;
+  background-image:
+    radial-gradient(ellipse 70% 60% at 70% 30%, rgba(59,130,246,.06) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 20% 70%, rgba(16,185,129,.06) 0%, transparent 50%);
+  background-attachment: fixed;
+  transition: background-color .25s !important;
+}
+.dark body, html.dark body {
+  background-image:
+    radial-gradient(ellipse 70% 60% at 70% 30%, rgba(59,130,246,.04) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 20% 70%, rgba(16,185,129,.03) 0%, transparent 50%);
+}
+
+/* Role selection cards */
+.role-card {
+  border: 2px solid var(--border);
+  border-radius: .875rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+  background: var(--surface);
+}
+.role-card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+}
+.role-card.selected-user {
+  border-color: #3b82f6;
+  background: rgba(59,130,246,.06);
+}
+.role-card.selected-kontributor {
+  border-color: #10b981;
+  background: rgba(16,185,129,.06);
+}
+input[type="radio"] { display: none; }

@@ -1,0 +1,7 @@
+/* CSS extracted from profil_publik.php */
+
+  .prof-cover{height:120px;background:linear-gradient(135deg,#059669 0%,#0891b2 100%);border-radius:1rem 1rem 0 0;position:relative}
+  .avatar-xl{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#10b981,#059669);display:flex;align-items:center;justify-content:center;font-family:'Cabinet Grotesk',sans-serif;font-size:2rem;font-weight:900;color:#fff;border:4px solid var(--bg-primary);position:absolute;bottom:-40px;left:1.5rem}
+  .stat-pill{display:flex;flex-direction:column;align-items:center;padding:.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:.875rem;min-width:80px}
+  .activity-row{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 0;border-bottom:1px solid var(--border)}
+  .activity-row:last-child{border:none}
