@@ -283,22 +283,38 @@ function updateChartKota(provinsi) {
   }
 })();
 </script>
-<?php if ($data): ?>
+<?php if (isset($data) && $data): ?>
+<?php
+    // 1. Proses data di PHP dulu agar aman dari error HTML yang bocor ke JS
+    $safeDataAll = (isset($dataAll) && is_array($dataAll)) ? $dataAll : [];
+    $mappedRows = array_map(function($r) {
+        return [
+            'lokasi'   => $r['lokasi'] ?? '',
+            'provinsi' => $r['provinsi'] ?? '',
+            'history'  => json_decode($r['history'] ?? '[]', true) ?: [],
+            'sekarang' => (int)($r['harga_sekarang'] ?? 0),
+            'kemarin'  => (int)($r['harga_kemarin'] ?? 0),
+            'satuan'   => $r['satuan'] ?? 'kg'
+        ];
+    }, $safeDataAll);
+    
+    $jsonAllRows = json_encode($mappedRows);
+    
+    $fallbackHistory = [];
+    if (isset($data['history'])) {
+        $decoded = json_decode($data['history'], true);
+        if (is_array($decoded)) $fallbackHistory = array_values($decoded);
+    }
+    $jsonFallback = json_encode($fallbackHistory);
+?>
 <script>
-// Data untuk fungsi switchChart
-const allRows = <?= json_encode(array_map(fn($r)=>[
-    'lokasi'   => $r['lokasi'],
-    'provinsi' => $r['provinsi'],
-    'history'  => json_decode($r['history'] ?? '[]', true) ?: [],
-    'sekarang' => (int)$r['harga_sekarang'],
-    'kemarin'  => (int)$r['harga_kemarin'],
-    'satuan'   => $r['satuan'] ?? 'kg',
-], $dataAll), JSON_UNESCAPED_UNICODE) ?>;
+// 2. Oper data JSON murni ke Javascript
+const allRows = <?= $jsonAllRows ?: '[]' ?>;
+const fallbackHistory = <?= $jsonFallback ?: '[]' ?>;
 
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
 
-// ── renderHistTable: Fungsi global tunggal ──
 function renderHistTable(histArr) {
   const tbody = document.getElementById('histTbody');
   if (!tbody) return;
@@ -329,26 +345,23 @@ function renderHistTable(histArr) {
   });
 }
 
-// ── initChart: Inisialisasi awal grafik ──
 (function initChart() {
   const ctx = document.getElementById('mainChart')?.getContext('2d');
   if (!ctx) return;
   
-  // Deteksi jika Chart.js belum di-load
   if (typeof Chart === 'undefined') {
-    console.error('Library Chart.js belum dimuat! Pastikan script diletakkan di head/footer.');
+    console.error('Library Chart.js belum dimuat!');
     return;
   }
 
-  const t   = getChartTheme(); // Fungsi ini dari scripts.js
+  const t   = getChartTheme(); 
   let grad  = ctx.createLinearGradient(0,0,0,300);
   grad.addColorStop(0,'rgba(16,185,129,.35)'); 
   grad.addColorStop(1,'rgba(16,185,129,0)');
 
-  // Ambil data dari allRows atau fallback ke data tunggal
-  let rawData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history'] ?? '[]', true) ?: []), JSON_UNESCAPED_UNICODE) ?>;
+  // Ambil history pertama atau gunakan data fallback
+  let rawData = allRows[0]?.history ?? fallbackHistory;
   
-  // FIX: Padding data agar pas 7 hari (mencegah error jika data di DB cuma sedikit)
   if (!Array.isArray(rawData)) rawData = [];
   const initData = rawData.slice(-7);
   while(initData.length < 7) {
@@ -387,10 +400,8 @@ function renderHistTable(histArr) {
     }
   });
 
-  // Render tabel dengan data yang sudah di-padding
   renderHistTable(initData);
 
-  // Responsif terhadap pergantian dark/light mode
   document.addEventListener('themeChanged', () => {
     if (!activeChart) return;
     const nt = getChartTheme();
@@ -402,7 +413,6 @@ function renderHistTable(histArr) {
   });
 })();
 
-// ── switchChart: Dipanggil saat user klik baris di tabel lokasi ──
 function switchChart(idx) {
   const row = allRows[idx];
   if (!row || !activeChart) return;
@@ -414,8 +424,8 @@ function switchChart(idx) {
   }
   
   activeChart.data.datasets[0].data = padded;
-  activeChart.update(); // Update chart
-  renderHistTable(padded); // Update tabel
+  activeChart.update(); 
+  renderHistTable(padded); 
   
   document.getElementById('chartWrapper')?.scrollIntoView({behavior:'smooth', block:'center'});
 }
