@@ -354,7 +354,7 @@ let activeChart = null;
     activeChart.data.datasets[0].pointBackgroundColor = nt.bgColor;
     activeChart.update();
   });
-})();
+}
 
 // switchChart: called when user clicks a row in the all-locations table
 function switchChart(idx) {
