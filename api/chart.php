@@ -55,7 +55,10 @@ $activeNav = 'chart';
 <!doctype html>
 <html lang="id">
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
-
+<style>
+  .filter-card:focus-within { box-shadow:0 0 0 2px rgba(16,185,129,.25); }
+  #chartWrapper { position:relative; width:100%; height:300px; }
+</style>
 </head>
 <body>
 <div class="h-9 bg-[var(--bg-secondary)] border-b border-[var(--border)]"></div>
@@ -253,7 +256,7 @@ $activeNav = 'chart';
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="Assets/scripts.js"></script>
+<script src="/scripts.js"></script>
 <script>
 lucide.createIcons();
 
@@ -286,7 +289,7 @@ function updateChartKota(provinsi) {
 const allRows = <?= json_encode(array_map(fn($r)=>[
     'lokasi'   => $r['lokasi'],
     'provinsi' => $r['provinsi'],
-    'history'  => (function($h) { $d = json_decode($h ?? '[]', true); return is_array($d) ? $d : []; })($r['history']),
+    'history'  => json_decode($r['history']??'[]',true),
     'sekarang' => (int)$r['harga_sekarang'],
     'kemarin'  => (int)$r['harga_kemarin'],
     'satuan'   => $r['satuan']??'kg',
@@ -295,17 +298,21 @@ const allRows = <?= json_encode(array_map(fn($r)=>[
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
 
-// Render history table from chart data
+
+// ── renderHistTable: fungsi global agar bisa dipanggil switchChart ──
 function renderHistTable(histArr) {
+  const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
   const tbody = document.getElementById('histTbody');
   if (!tbody) return;
   const maxH = Math.max(...histArr), minH = Math.min(...histArr);
   tbody.innerHTML = '';
   histArr.forEach((h, i) => {
-    const prev = i > 0 ? histArr[i - 1] : h, diff = h - prev, pct = prev > 0 ? Math.abs(diff / prev * 100).toFixed(2) : 0;
+    const prev = i > 0 ? histArr[i-1] : h;
+    const diff = h - prev;
+    const pct  = prev > 0 ? Math.abs(diff / prev * 100).toFixed(2) : 0;
     const isToday = i === histArr.length - 1;
-    const barPct = maxH > minH ? Math.round((h - minH) / (maxH - minH) * 100) : 50;
-    const barCol = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#94a3b8';
+    const barPct  = maxH > minH ? Math.round((h - minH) / (maxH - minH) * 100) : 50;
+    const barCol  = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#94a3b8';
     let badge = '';
     if (i === 0) badge = '<span class="text-[var(--text-muted)] text-xs">—</span>';
     else if (diff > 0) badge = `<span class="badge badge-green">▲ +${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
@@ -327,10 +334,7 @@ function renderHistTable(histArr) {
   let grad  = ctx.createLinearGradient(0,0,0,300);
   grad.addColorStop(0,'rgba(16,185,129,.35)'); grad.addColorStop(1,'rgba(16,185,129,0)');
 
-  let initData = allRows[0]?.history ?? <?= json_encode(array_values((array)(json_decode($data['history']??'[]',true))),JSON_UNESCAPED_UNICODE) ?>;
-  if (!Array.isArray(initData)) initData = [];
-  while (initData.length < 7) initData.unshift(initData[0] ?? 0);
-  initData = initData.slice(-7);
+  const initData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history']??'[]',true)),JSON_UNESCAPED_UNICODE) ?>;
 
   activeChart = new Chart(ctx, {
     type:'line',
@@ -344,6 +348,30 @@ function renderHistTable(histArr) {
                x:{ticks:{color:t.textColor}, grid:{display:false}} } }
   });
 
+  // Render history table from chart data
+  function renderHistTable(histArr) {
+    const tbody = document.getElementById('histTbody');
+    if (!tbody) return;
+    const maxH = Math.max(...histArr), minH = Math.min(...histArr);
+    tbody.innerHTML = '';
+    histArr.forEach((h,i) => {
+    const prev=i>0?histArr[i-1]:h, diff=h-prev, pct=prev>0?Math.abs(diff/prev*100).toFixed(2):0;
+    const isToday=i===histArr.length-1;
+    const barPct = maxH>minH?Math.round((h-minH)/(maxH-minH)*100):50;
+    const barCol = diff>0?'#10b981':diff<0?'#ef4444':'#94a3b8';
+    let badge='';
+    if(i===0) badge='<span class="text-[var(--text-muted)] text-xs">—</span>';
+    else if(diff>0) badge=`<span class="badge badge-green">▲ +${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
+    else if(diff<0) badge=`<span class="badge badge-red">▼ ${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
+    else badge='<span class="badge badge-slate">■ Stabil</span>';
+      tbody.innerHTML+=`<tr class="${isToday?'bg-brand-500/[0.03]':''}">
+        <td><span class="font-medium ${isToday?'text-brand-500 font-bold':'text-[var(--text-secondary)]'}">${LABELS[i]}</span>${isToday?'<span class="ml-1.5 badge badge-green text-[9px]">HARI INI</span>':''}</td>
+        <td class="font-display font-bold text-[var(--text-primary)]">Rp ${h.toLocaleString('id-ID')}</td>
+        <td>${badge}</td>
+        <td><div class="w-24 h-1.5 rounded-full bg-[var(--surface)] overflow-hidden"><div class="h-full rounded-full" style="width:${barPct}%;background:${barCol}"></div></div></td>
+      </tr>`;
+    });
+  }
   renderHistTable(initData);
 
   document.addEventListener('themeChanged', () => {
@@ -372,5 +400,6 @@ function switchChart(idx) {
 }
 </script>
 <?php endif; ?>
+<script>lucide.createIcons();</script>
 </body>
 </html>
