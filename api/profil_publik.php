@@ -169,7 +169,7 @@ $pageTitle = 'Profil '.htmlspecialchars($user['username']);
 
 </div>
 
-<script src="api/Assets/scripts.js"></script>
+<script src="api/assets/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

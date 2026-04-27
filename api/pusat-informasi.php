@@ -245,7 +245,7 @@ $email_config = $data_email ? json_decode($data_email['isi_data'], true) : ['hos
         </main>
     </div>
 
-    <script src="api/Assets/scripts.js"></script>
+    <script src="api/assets/scripts.js"></script>
     <script>lucide.createIcons();</script>
 </body>
 </html>
