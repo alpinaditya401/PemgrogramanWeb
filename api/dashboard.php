@@ -662,17 +662,32 @@ function editPengumuman(p) {
 let adminChart = null;
 
 function updateChart() {
-  if (!adminChart) return;
-  const n = document.getElementById('fNama')?.value;
-  const l = document.getElementById('fLokasi')?.value;
-  const f = chartData.find(d => d.nama===n && d.lokasi===l);
-  const t = getChartTheme();
-  adminChart.options.plugins.title.text  = f ? `${n} — ${l}` : 'Pilih komoditas & lokasi';
-  adminChart.options.plugins.title.color = t.titleColor;
-  adminChart.data.datasets[0].data       = f ? f.history : [];
-  adminChart.update();
-}
+    if (!adminChart) return;
+    const n = document.getElementById('fNama')?.value;
+    const l = document.getElementById('fLokasi')?.value;
+    const f = chartData.find(d => d.nama === n && d.lokasi === l);
+    const t = getChartTheme();
+    
+    // PERBAIKAN: Parse string JSON menjadi Array
+    let hist = [0,0,0,0,0,0,0];
+    if (f && f.history) {
+      try {
+        const parsed = typeof f.history === 'string' ? JSON.parse(f.history) : f.history;
+        if (Array.isArray(parsed) && parsed.length) hist = parsed;
+      } catch(e) {}
+    }
 
+    // ... setting theme ... (tetap dipertahankan)
+    adminChart.options.plugins.title.text  = f ? `${n} — ${l}` : 'Pilih komoditas & lokasi';
+    adminChart.options.plugins.title.color = t.titleColor;
+    adminChart.options.scales.y.ticks.color= t.textColor;
+    adminChart.options.scales.y.grid.color = t.gridColor;
+    adminChart.options.scales.x.ticks.color= t.textColor;
+    
+    adminChart.data.datasets[0].data = hist; // Menggunakan array yang sudah diparsing
+    adminChart.data.datasets[0].pointBackgroundColor = t.bgColor;
+    adminChart.update();
+  }
 (function initAdminChart() {
   const canvas = document.getElementById('adminChart');
   if (!canvas) return;

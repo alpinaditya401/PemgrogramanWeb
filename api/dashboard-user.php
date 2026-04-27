@@ -1088,13 +1088,21 @@ $pageTitle = 'Dashboard';
             })();
 
             // Switch chart when user clicks a table row
+            // Switch chart when user clicks a table row
             function highlightRow(idx) {
                 const row = allChartRows[idx];
                 if (!row || !activeChart) return;
-                const hist = Array.isArray(row.history) ? row.history : [];
+                
+                // PERBAIKAN: Parse string JSON menjadi Array
+                let hist = [];
+                try {
+                  hist = typeof row.history === 'string' ? JSON.parse(row.history) : row.history;
+                } catch(e) {}
+                if (!Array.isArray(hist)) hist = [];
+
                 // Pad to 7 points
                 while (hist.length < 7) hist.unshift(hist[0] ?? 0);
-                activeChart.data.datasets[0].data = hist.slice(-7);
+                // ... (lanjutannya tetap sama)    activeChart.data.datasets[0].data = hist.slice(-7);
                 activeChart.update('active');
                 // Scroll to chart
                 document.getElementById('userChartWrapper')?.scrollIntoView({

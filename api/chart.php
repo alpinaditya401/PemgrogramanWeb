@@ -363,9 +363,16 @@ function renderHistTable(histArr) {
 function switchChart(idx) {
   const row = allRows[idx];
   if (!row || !activeChart) return;
-  const hist = Array.isArray(row.history) ? row.history : [];
+  
+  // PERBAIKAN: Parse string JSON menjadi Array
+  let hist = [];
+  try {
+    hist = typeof row.history === 'string' ? JSON.parse(row.history) : row.history;
+  } catch(e) {}
+  if (!Array.isArray(hist)) hist = [];
+
   const padded = hist.slice(-7);
-  while(padded.length < 7) padded.unshift(padded[0] ?? 0);
+  // ...  while(padded.length < 7) padded.unshift(padded[0] ?? 0);
   activeChart.data.datasets[0].data = padded;
   activeChart.update('active');
   renderHistTable(padded);

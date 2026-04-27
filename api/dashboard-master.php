@@ -520,8 +520,14 @@ let masterChart = null;
     masterChart.options.scales.y.ticks.color= t.textColor;
     masterChart.options.scales.y.grid.color = t.gridColor;
     masterChart.options.scales.x.ticks.color= t.textColor;
-    masterChart.data.datasets[0].data       = f && Array.isArray(f.history) ? f.history : [0,0,0,0,0,0,0];
-    masterChart.data.datasets[0].pointBackgroundColor = t.bgColor;
+    let hist = [0,0,0,0,0,0,0];
+    if (f && f.history) {
+      try {
+        const parsed = typeof f.history === 'string' ? JSON.parse(f.history) : f.history;
+        if (Array.isArray(parsed) && parsed.length) hist = parsed;
+      } catch(e) {}
+    }
+    masterChart.data.datasets[0].data = hist;    masterChart.data.datasets[0].pointBackgroundColor = t.bgColor;
     masterChart.update('active');
   }
 
