@@ -298,34 +298,6 @@ const allRows = <?= json_encode(array_map(fn($r)=>[
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
 
-
-// ── renderHistTable: fungsi global agar bisa dipanggil switchChart ──
-function renderHistTable(histArr) {
-  const tbody = document.getElementById('histTbody');
-  if (!tbody) return;
-  const maxH = Math.max(...histArr), minH = Math.min(...histArr);
-  tbody.innerHTML = '';
-  histArr.forEach((h, i) => {
-    const prev = i > 0 ? histArr[i-1] : h;
-    const diff = h - prev;
-    const pct  = prev > 0 ? Math.abs(diff / prev * 100).toFixed(2) : 0;
-    const isToday = i === histArr.length - 1;
-    const barPct  = maxH > minH ? Math.round((h - minH) / (maxH - minH) * 100) : 50;
-    const barCol  = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#94a3b8';
-    let badge = '';
-    if (i === 0) badge = '<span class="text-[var(--text-muted)] text-xs">—</span>';
-    else if (diff > 0) badge = `<span class="badge badge-green">▲ +${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
-    else if (diff < 0) badge = `<span class="badge badge-red">▼ ${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
-    else badge = '<span class="badge badge-slate">■ Stabil</span>';
-    tbody.innerHTML += `<tr class="${isToday ? 'bg-brand-500/[0.03]' : ''}">
-      <td><span class="font-medium ${isToday ? 'text-brand-500 font-bold' : 'text-[var(--text-secondary)]'}">${LABELS[i]}</span>${isToday ? '<span class="ml-1.5 badge badge-green text-[9px]">HARI INI</span>' : ''}</td>
-      <td class="font-display font-bold text-[var(--text-primary)]">Rp ${h.toLocaleString('id-ID')}</td>
-      <td>${badge}</td>
-      <td><div class="w-24 h-1.5 rounded-full bg-[var(--surface)] overflow-hidden"><div class="h-full rounded-full" style="width:${barPct}%;background:${barCol}"></div></div></td>
-    </tr>`;
-  });
-}
-
 (function initChart() {
   const ctx = document.getElementById('mainChart')?.getContext('2d');
   if (!ctx) return;
@@ -346,6 +318,31 @@ function renderHistTable(histArr) {
       scales:{ y:{beginAtZero:false, ticks:{color:t.textColor,callback:v=>'Rp '+v.toLocaleString('id-ID')}, grid:{color:t.gridColor}},
                x:{ticks:{color:t.textColor}, grid:{display:false}} } }
   });
+
+  // Render history table from chart data
+  function renderHistTable(histArr) {
+    const tbody = document.getElementById('histTbody');
+    if (!tbody) return;
+    const maxH = Math.max(...histArr), minH = Math.min(...histArr);
+    tbody.innerHTML = '';
+    histArr.forEach((h,i) => {
+    const prev=i>0?histData[i-1]:h, diff=h-prev, pct=prev>0?Math.abs(diff/prev*100).toFixed(2):0;
+    const isToday=i===histData.length-1;
+    const barPct = maxH>minH?Math.round((h-minH)/(maxH-minH)*100):50;
+    const barCol = diff>0?'#10b981':diff<0?'#ef4444':'#94a3b8';
+    let badge='';
+    if(i===0) badge='<span class="text-[var(--text-muted)] text-xs">—</span>';
+    else if(diff>0) badge=`<span class="badge badge-green">▲ +${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
+    else if(diff<0) badge=`<span class="badge badge-red">▼ ${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
+    else badge='<span class="badge badge-slate">■ Stabil</span>';
+      tbody.innerHTML+=`<tr class="${isToday?'bg-brand-500/[0.03]':''}">
+        <td><span class="font-medium ${isToday?'text-brand-500 font-bold':'text-[var(--text-secondary)]'}">${LABELS[i]}</span>${isToday?'<span class="ml-1.5 badge badge-green text-[9px]">HARI INI</span>':''}</td>
+        <td class="font-display font-bold text-[var(--text-primary)]">Rp ${h.toLocaleString('id-ID')}</td>
+        <td>${badge}</td>
+        <td><div class="w-24 h-1.5 rounded-full bg-[var(--surface)] overflow-hidden"><div class="h-full rounded-full" style="width:${barPct}%;background:${barCol}"></div></div></td>
+      </tr>`;
+    });
+  }
   renderHistTable(initData);
 
   document.addEventListener('themeChanged', () => {
