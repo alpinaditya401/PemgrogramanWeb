@@ -1,41 +1,11 @@
-{
-  "functions": {
-    "api/**/*.php": {
-      "runtime": "vercel-php@0.7.1"
-    }
-  },
-  "routes": [
-    {
-      "src": "/uploads/(.*)",
-      "dest": "/api/uploads/$1"
-    },
-    {
-      "src": "/",
-      "dest": "/api/index.php"
-    },
-    {
-      "src": "/index.php",
-      "dest": "/api/index.php"
-    },
-    {
-      "src": "/Proses/(.*)\\.php(.*)",
-      "dest": "/api/Proses/$1.php$2"
-    },
-    {
-      "src": "/api/Proses/(.*)\\.php(.*)",
-      "dest": "/api/Proses/$1.php$2"
-    },
-    {
-      "src": "/api/([^/]+\\.php)(.*)",
-      "dest": "/api/$1$2"
-    },
-    {
-      "src": "/([^/]+\\.php)(.*)",
-      "dest": "/api/$1$2"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ]
-}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="refresh" content="0; url=/index.php">
+  <title>InfoHarga</title>
+</head>
+<body>
+  <p>Mengalihkan... <a href="/index.php">Klik di sini</a> jika tidak otomatis.</p>
+</body>
+</html>
