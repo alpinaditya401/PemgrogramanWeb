@@ -1,251 +1,377 @@
 <?php
 /**
- * pusat-informasi.php — Pengaturan Pengumuman Global & API Gateway
+ * register.php — Halaman Register
  */
-require __DIR__ . '/Server/koneksi.php';
+require_once __DIR__ . '/Server/koneksi.php'; // auto-fallback ke koneksi_lite jika no DB
 
-// 1. KEAMANAN SANGAT KETAT: Hanya Admin Master yang boleh mengakses konfigurasi API
-if (!isset($_SESSION['login']) || $_SESSION['role'] !== 'admin_master') {
-    header("Location: dashboard-master.php?pesan=akses_ditolak");
-    exit;
+if (isset($_SESSION['login']) && $_SESSION['login'] === true) {
+    redirect('dashboard-user.php');
 }
 
-$pesan = "";
-
-// --- FUNGSI BANTUAN UNTUK MENGAMBIL DATA ---
-function getInfo($conn, $tipe) {
-    $query = mysqli_query($conn, "SELECT * FROM pusat_informasi WHERE tipe='$tipe' LIMIT 1");
-    return mysqli_fetch_assoc($query);
-}
-
-// 2. PROSES POST: SIMPAN PENGUMUMAN
-if (isset($_POST['simpan_pengumuman'])) {
-    $isi_data = mysqli_real_escape_string($conn, $_POST['isi_pengumuman']);
-    $status = mysqli_real_escape_string($conn, $_POST['status_pengumuman']);
-    
-    $cek = getInfo($conn, 'pengumuman');
-    if ($cek) {
-        $q = "UPDATE pusat_informasi SET isi_data='$isi_data', status='$status' WHERE tipe='pengumuman'";
-    } else {
-        $q = "INSERT INTO pusat_informasi (tipe, judul, isi_data, status) VALUES ('pengumuman', 'Pengumuman Sistem', '$isi_data', '$status')";
-    }
-    
-    if(mysqli_query($conn, $q)) $pesan = "success|Pengumuman berhasil diperbarui!";
-    else $pesan = "error|Gagal memperbarui pengumuman.";
-}
-
-// 3. PROSES POST: SIMPAN SMS GATEWAY (Disimpan sebagai JSON)
-if (isset($_POST['simpan_sms'])) {
-    $api_key = $_POST['sms_api_key'];
-    $sender = $_POST['sms_sender'];
-    
-    // Format menjadi JSON array
-    $json_data = mysqli_real_escape_string($conn, json_encode([
-        'api_key' => $api_key,
-        'sender' => $sender
-    ]));
-    $status = $_POST['status_sms'];
-
-    $cek = getInfo($conn, 'sms_gateway_api');
-    if ($cek) {
-        $q = "UPDATE pusat_informasi SET isi_data='$json_data', status='$status' WHERE tipe='sms_gateway_api'";
-    } else {
-        $q = "INSERT INTO pusat_informasi (tipe, judul, isi_data, status) VALUES ('sms_gateway_api', 'Konfigurasi SMS', '$json_data', '$status')";
-    }
-    
-    if(mysqli_query($conn, $q)) $pesan = "success|Konfigurasi SMS Gateway tersimpan!";
-}
-
-// 4. PROSES POST: SIMPAN EMAIL GATEWAY (SMTP)
-if (isset($_POST['simpan_email'])) {
-    $json_data = mysqli_real_escape_string($conn, json_encode([
-        'host' => $_POST['smtp_host'],
-        'port' => $_POST['smtp_port'],
-        'user' => $_POST['smtp_user'],
-        'pass' => $_POST['smtp_pass']
-    ]));
-    $status = $_POST['status_email'];
-
-    $cek = getInfo($conn, 'email_gateway_api');
-    if ($cek) {
-        $q = "UPDATE pusat_informasi SET isi_data='$json_data', status='$status' WHERE tipe='email_gateway_api'";
-    } else {
-        $q = "INSERT INTO pusat_informasi (tipe, judul, isi_data, status) VALUES ('email_gateway_api', 'Konfigurasi Email', '$json_data', '$status')";
-    }
-    
-    if(mysqli_query($conn, $q)) $pesan = "success|Konfigurasi Email SMTP tersimpan!";
-}
-
-// AMBIL DATA TERKINI UNTUK DITAMPILKAN DI FORM
-$data_pengumuman = getInfo($conn, 'pengumuman');
-$data_sms = getInfo($conn, 'sms_gateway_api');
-$data_email = getInfo($conn, 'email_gateway_api');
-
-// Decode JSON untuk SMS dan Email agar bisa diisi ke input value
-$sms_config = $data_sms ? json_decode($data_sms['isi_data'], true) : ['api_key'=>'', 'sender'=>''];
-$email_config = $data_email ? json_decode($data_email['isi_data'], true) : ['host'=>'', 'port'=>'', 'user'=>'', 'pass'=>''];
+$pageTitle = 'Daftar Akun';
+$pageDesc  = 'Buat akun baru di InfoHarga Komoditi.';
 ?>
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-    <?php 
-    $pageTitle = "Pusat Informasi & Gateway";
-    include __DIR__ . '/Assets/head.php'; 
-    ?>
+<?php include __DIR__ . '/Assets/head.php'; ?>
+<style>
+/*
+ * FIX DARK MODE BACKGROUND — sama seperti login.php
+ * Gunakan background-color dari CSS var agar ikut berganti tema
+ */
+body {
+  background-color: var(--bg-primary) !important;
+  background-image:
+    radial-gradient(ellipse 70% 60% at 70% 30%, rgba(59,130,246,.06) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 20% 70%, rgba(16,185,129,.06) 0%, transparent 50%);
+  background-attachment: fixed;
+  transition: background-color .25s !important;
+}
+.dark body, html.dark body {
+  background-image:
+    radial-gradient(ellipse 70% 60% at 70% 30%, rgba(59,130,246,.04) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 20% 70%, rgba(16,185,129,.03) 0%, transparent 50%);
+}
+
+/* Role selection cards */
+.role-card {
+  border: 2px solid var(--border);
+  border-radius: .875rem;
+  padding: 1rem;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+  background: var(--surface);
+}
+.role-card:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-hover);
+}
+.role-card.selected-user {
+  border-color: #3b82f6;
+  background: rgba(59,130,246,.06);
+}
+.role-card.selected-kontributor {
+  border-color: #10b981;
+  background: rgba(16,185,129,.06);
+}
+input[type="radio"] { display: none; }
+</style>
 </head>
-<body class="bg-[var(--bg-secondary)] text-[var(--text-primary)]">
+<body class="min-h-screen flex items-center justify-center p-4">
 
-    <?php include __DIR__ . '/Assets/navbar.php'; ?>
+  <a href="login.php" class="fixed top-5 left-5 flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition group">
+    <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-0.5 transition-transform"></i> Login
+  </a>
+  <button data-action="toggle-theme"
+          class="fixed top-5 right-5 w-9 h-9 flex items-center justify-center rounded-lg bg-[var(--surface)] hover:bg-[var(--surface-hover)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
+    <i data-lucide="moon" data-theme-icon="toggle" class="w-4 h-4"></i>
+  </button>
 
-    <div class="flex min-h-screen pt-24">
-        <aside class="w-64 hidden lg:block border-r border-[var(--border)] p-6 space-y-2">
-            <h3 class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-4">Menu Master</h3>
-            <a href="dashboard-master.php" class="sidebar-nav flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--surface)] transition">
-                <i data-lucide="shield-check" class="w-5 h-5"></i>
-                <span class="font-medium">Manajemen User</span>
-            </a>
-            <a href="kelola-artikel.php" class="sidebar-nav flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--surface)] transition">
-                <i data-lucide="file-text" class="w-5 h-5"></i>
-                <span class="font-medium">Kelola Artikel</span>
-            </a>
-            <a href="pusat-informasi.php" class="sidebar-nav active flex items-center gap-3 p-3 rounded-xl bg-brand-500/10 text-brand-500">
-                <i data-lucide="settings" class="w-5 h-5"></i>
-                <span class="font-medium">Pengaturan Sistem</span>
-            </a>
-        </aside>
+  <div class="w-full max-w-lg animate-fade-up py-10">
 
-        <main class="flex-1 p-6 lg:p-10">
-            <div class="max-w-4xl mx-auto">
-                
-                <div class="mb-8">
-                    <h1 class="text-3xl font-display font-bold">Pusat Informasi & Gateway</h1>
-                    <p class="text-[var(--text-muted)]">Atur pengumuman dashboard dan integrasi pengiriman pesan.</p>
-                </div>
-
-                <?php if ($pesan): 
-                    $p = explode('|', $pesan);
-                    $bgColor = $p[0] == 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
-                ?>
-                <div class="<?= $bgColor ?> p-4 rounded-xl mb-6 flex items-center gap-3">
-                    <i data-lucide="<?= $p[0] == 'success' ? 'check-circle' : 'alert-circle' ?>" class="w-5 h-5"></i>
-                    <p class="font-medium"><?= htmlspecialchars($p[1]) ?></p>
-                </div>
-                <?php endif; ?>
-
-                <div class="space-y-6">
-                    
-                    <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
-                        <div class="flex justify-between items-center mb-5">
-                            <div class="flex items-center gap-3 text-yellow-500">
-                                <i data-lucide="megaphone" class="w-6 h-6"></i>
-                                <h2 class="font-bold text-lg text-[var(--text-primary)]">Pengumuman Dashboard User</h2>
-                            </div>
-                        </div>
-                        <form action="" method="POST" class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium mb-1">Isi Pengumuman</label>
-                                <textarea name="isi_pengumuman" rows="3" required placeholder="Ketik pengumuman penting di sini..."
-                                          class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-500 outline-none"><?= htmlspecialchars($data_pengumuman['isi_data'] ?? '') ?></textarea>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <label class="text-sm font-medium">Status Tampil:</label>
-                                    <select name="status_pengumuman" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm outline-none">
-                                        <option value="aktif" <?= ($data_pengumuman['status']??'') == 'aktif' ? 'selected' : '' ?>>Aktif (Tampilkan)</option>
-                                        <option value="nonaktif" <?= ($data_pengumuman['status']??'') == 'nonaktif' ? 'selected' : '' ?>>Nonaktif (Sembunyikan)</option>
-                                    </select>
-                                </div>
-                                <button type="submit" name="simpan_pengumuman" class="bg-gray-800 hover:bg-gray-700 text-white font-bold px-6 py-2 rounded-xl transition flex items-center gap-2">
-                                    <i data-lucide="save" class="w-4 h-4"></i> Simpan
-                               </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
-                        <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
-                            <div class="flex items-center gap-3 mb-5 text-blue-500">
-                                <i data-lucide="message-square" class="w-6 h-6"></i>
-                                <h2 class="font-bold text-lg text-[var(--text-primary)]">Konfigurasi SMS API</h2>
-                            </div>
-                            <form action="" method="POST" class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">API Key Service (Contoh: Twilio/Zenziva)</label>
-                                    <input type="password" name="sms_api_key" value="<?= htmlspecialchars($sms_config['api_key'] ?? '') ?>"
-                                           class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Sender ID / Masking</label>
-                                    <input type="text" name="sms_sender" value="<?= htmlspecialchars($sms_config['sender'] ?? '') ?>" placeholder="Cth: INFOHARGA"
-                                           class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
-                                </div>
-                                
-                                <div class="pt-2 border-t border-[var(--border)] flex justify-between items-center">
-                                    <select name="status_sms" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs outline-none">
-                                        <option value="aktif" <?= ($data_sms['status']??'') == 'aktif' ? 'selected' : '' ?>>Aktif</option>
-                                        <option value="nonaktif" <?= ($data_sms['status']??'') == 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
-                                    </select>
-                                    <button type="submit" name="simpan_sms" class="bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold px-4 py-2 rounded-xl transition">
-                                        Simpan SMS
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <div class="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 shadow-sm">
-                            <div class="flex items-center gap-3 mb-5 text-brand-500">
-                                <i data-lucide="mail" class="w-6 h-6"></i>
-                                <h2 class="font-bold text-lg text-[var(--text-primary)]">Konfigurasi SMTP Email</h2>
-                            </div>
-                            <form action="" method="POST" class="space-y-4">
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">SMTP Host</label>
-                                        <input type="text" name="smtp_host" value="<?= htmlspecialchars($email_config['host'] ?? '') ?>" placeholder="smtp.mail.com"
-                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Port</label>
-                                        <input type="number" name="smtp_port" value="<?= htmlspecialchars($email_config['port'] ?? '') ?>" placeholder="465 / 587"
-                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Email User</label>
-                                        <input type="email" name="smtp_user" value="<?= htmlspecialchars($email_config['user'] ?? '') ?>" placeholder="admin@domain.com"
-                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-medium mb-1 text-[var(--text-muted)]">Password</label>
-                                        <input type="password" name="smtp_pass" value="<?= htmlspecialchars($email_config['pass'] ?? '') ?>" placeholder="••••••••"
-                                               class="w-full bg-[var(--bg-primary)] border border-[var(--border)] rounded-xl px-3 py-2 text-sm outline-none">
-                                    </div>
-                                </div>
-                                
-                                <div class="pt-2 border-t border-[var(--border)] flex justify-between items-center">
-                                    <select name="status_email" class="bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs outline-none">
-                                        <option value="aktif" <?= ($data_email['status']??'') == 'aktif' ? 'selected' : '' ?>>Aktif</option>
-                                        <option value="nonaktif" <?= ($data_email['status']??'') == 'nonaktif' ? 'selected' : '' ?>>Nonaktif</option>
-                                    </select>
-                                    <button type="submit" name="simpan_email" class="bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold px-4 py-2 rounded-xl transition">
-                                        Simpan SMTP
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-        </main>
+    <!-- Logo -->
+    <div class="flex items-center justify-center gap-2.5 mb-7">
+      <div class="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center shadow-lg shadow-brand-500/30">
+        <i data-lucide="trending-up" class="w-5 h-5 text-white"></i>
+      </div>
+      <span class="font-display font-black text-xl text-[var(--text-primary)]">
+        InfoHarga<span class="text-brand-500">Komoditi</span>
+      </span>
     </div>
 
-    <script src="/scripts.js"></script>
-    <script>lucide.createIcons();</script>
+    <div class="card p-7 shadow-2xl">
+      <h1 class="font-display font-black text-2xl text-[var(--text-primary)] mb-1">Buat Akun</h1>
+      <p class="text-sm text-[var(--text-muted)] mb-6">Pilih peran dan lengkapi data Anda</p>
+
+      <?php if (($_GET['pesan'] ?? '') === 'nodb'): ?>
+      <div class="mb-5 msg-warning flex items-start gap-3" style="background:rgba(245,158,11,.08);color:#f59e0b;border:1px solid rgba(245,158,11,.2);border-radius:.75rem;padding:.75rem 1rem;font-size:.875rem;">
+        <i data-lucide="database" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+        <div>
+          <strong>Database Belum Terhubung</strong><br/>
+          <span style="font-size:.8rem">Fitur registrasi belum aktif karena database belum dikonfigurasi.</span>
+        </div>
+      </div>
+      <?php endif; ?>
+      <div id="msg-box" class="hidden mb-5 text-sm"></div>
+
+      <form action="Proses/prosesRegister.php" method="POST" novalidate class="space-y-4">
+
+        <!-- ── STEP 1: PILIH ROLE ── -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">
+            Daftar sebagai <span class="text-red-400">*</span>
+          </label>
+          <div class="grid grid-cols-2 gap-3">
+            <!-- User biasa -->
+            <label class="role-card selected-user" id="cardUser" for="roleUser" onclick="selectRole('user')">
+              <input type="radio" name="role" id="roleUser" value="user" checked/>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+                  <i data-lucide="user" class="w-4 h-4 text-blue-400"></i>
+                </div>
+                <div>
+                  <div class="font-display font-bold text-sm text-[var(--text-primary)]">Pengguna</div>
+                  <span class="badge badge-blue text-[9px]">User</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                Akses grafik harga, artikel edukasi, dan pantau komoditas di seluruh Indonesia.
+              </p>
+            </label>
+
+            <!-- Kontributor -->
+            <label class="role-card" id="cardKontributor" for="roleKontributor" onclick="selectRole('kontributor')">
+              <input type="radio" name="role" id="roleKontributor" value="kontributor"/>
+              <div class="flex items-center gap-2.5 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center flex-shrink-0">
+                  <i data-lucide="send" class="w-4 h-4 text-brand-500"></i>
+                </div>
+                <div>
+                  <div class="font-display font-bold text-sm text-[var(--text-primary)]">Kontributor</div>
+                  <span class="badge badge-green text-[9px]">Lapangan</span>
+                </div>
+              </div>
+              <p class="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                + Kirim laporan harga komoditas dari lapangan. Data Anda membantu transparansi harga nasional.
+              </p>
+            </label>
+          </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="flex items-center gap-3 py-1">
+          <div class="flex-1 h-px bg-[var(--border)]"></div>
+          <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Data Akun</span>
+          <div class="flex-1 h-px bg-[var(--border)]"></div>
+        </div>
+
+        <!-- Nama lengkap -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Nama Lengkap</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+              <i data-lucide="user-check" class="w-4 h-4"></i>
+            </span>
+            <input type="text" name="nama_lengkap" class="input-field input-icon"
+                   placeholder="Nama lengkap Anda" maxlength="120"/>
+          </div>
+        </div>
+
+        <!-- Email + Username (2 kolom) -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Email <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+                <i data-lucide="mail" class="w-4 h-4"></i>
+              </span>
+              <input type="email" name="email" class="input-field input-icon"
+                     placeholder="nama@email.com" autocomplete="email" required maxlength="120"/>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Username <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+                <i data-lucide="at-sign" class="w-4 h-4"></i>
+              </span>
+              <input type="text" name="username" class="input-field input-icon"
+                     placeholder="Min. 4 karakter" required minlength="4" maxlength="60" autocomplete="username"/>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tanggal lahir -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
+            Tanggal Lahir <span class="text-[var(--text-muted)] font-normal normal-case">(opsional)</span>
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+              <i data-lucide="calendar" class="w-4 h-4"></i>
+            </span>
+            <input type="date" name="tgl_lahir" class="input-field input-icon" style="color-scheme:dark light"/>
+          </div>
+        </div>
+
+        <!-- Divider lokasi -->
+        <div class="flex items-center gap-3 py-1">
+          <div class="flex-1 h-px bg-[var(--border)]"></div>
+          <span class="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">Lokasi Asal</span>
+          <div class="flex-1 h-px bg-[var(--border)]"></div>
+        </div>
+
+        <!-- Provinsi (dari BPS API mapping) -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
+            Provinsi
+            <span class="font-normal normal-case text-[var(--text-muted)] ml-1">— data dari BPS</span>
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+              <i data-lucide="map" class="w-4 h-4"></i>
+            </span>
+            <select id="selProvinsi" name="provinsi" class="input-field input-icon">
+              <option value="">— Pilih Provinsi —</option>
+              <?php foreach (PROVINSI_LIST as $prov): ?>
+              <option value="<?= htmlspecialchars($prov) ?>"><?= htmlspecialchars($prov) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </div>
+
+        <!-- Kota (dinamis berdasarkan provinsi → dari PROVINSI_KOTA) -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
+            Kota / Kabupaten
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+              <i data-lucide="map-pin" class="w-4 h-4"></i>
+            </span>
+            <select id="selKota" name="kota" class="input-field input-icon" disabled>
+              <option value="">— Pilih Provinsi dulu —</option>
+            </select>
+          </div>
+          <p class="text-[10px] text-[var(--text-muted)] mt-1 ml-0.5">Pilih provinsi terlebih dahulu untuk memuat daftar kota.</p>
+        </div>
+
+        <!-- Telepon -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
+            No. Telepon <span class="text-[var(--text-muted)] font-normal normal-case">(opsional)</span>
+          </label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+              <i data-lucide="phone" class="w-4 h-4"></i>
+            </span>
+            <input type="tel" name="telepon" class="input-field input-icon"
+                   placeholder="08xx-xxxx-xxxx" maxlength="20"/>
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Password <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+                <i data-lucide="lock" class="w-4 h-4"></i>
+              </span>
+              <input id="pw1" type="password" name="password" class="input-field input-icon pr-10"
+                     placeholder="Min. 6 karakter" required minlength="6" autocomplete="new-password"/>
+              <button type="button" id="tgl1" onclick="togglePassword('pw1','tgl1')"
+                      class="absolute inset-y-0 right-3 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Konfirmasi <span class="text-red-400">*</span></label>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-3.5 flex items-center text-[var(--text-muted)] pointer-events-none">
+                <i data-lucide="lock" class="w-4 h-4"></i>
+              </span>
+              <input id="pw2" type="password" name="konfirmasi" class="input-field input-icon pr-10"
+                     placeholder="Ulangi password" required autocomplete="new-password"/>
+              <button type="button" id="tgl2" onclick="togglePassword('pw2','tgl2')"
+                      class="absolute inset-y-0 right-3 flex items-center text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Syarat & ketentuan -->
+        <div class="flex items-start gap-2.5 p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)]">
+          <input type="checkbox" id="agree" name="agree" required class="mt-0.5 flex-shrink-0 w-4 h-4 accent-brand-500"/>
+          <label for="agree" class="text-xs text-[var(--text-muted)] leading-relaxed cursor-pointer">
+            Saya menyetujui bahwa data yang saya masukkan adalah benar dan akan digunakan sesuai kebijakan platform InfoHarga Komoditi.
+          </label>
+        </div>
+
+        <button type="submit" name="register"
+                class="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-display font-bold rounded-xl text-sm transition shadow-lg shadow-brand-600/20 hover:-translate-y-0.5 flex items-center justify-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4"></i> Daftar &amp; Masuk
+        </button>
+      </form>
+
+      <div class="flex items-center gap-3 my-5">
+        <div class="flex-1 h-px bg-[var(--border)]"></div>
+        <span class="text-[var(--text-muted)] text-xs">atau</span>
+        <div class="flex-1 h-px bg-[var(--border)]"></div>
+      </div>
+      <p class="text-center text-sm text-[var(--text-muted)]">
+        Sudah punya akun?
+        <a href="login.php" class="text-brand-500 font-bold hover:text-brand-400 transition">Login di sini</a>
+      </p>
+    </div>
+
+    <p class="text-center text-xs text-[var(--text-muted)] mt-5">&copy; <?= date('Y') ?> InfoHarga Komoditi</p>
+  </div>
+
+<!-- Inject PROVINSI_KOTA mapping dari PHP ke JavaScript -->
+<script>
+window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+</script>
+<script src="/scripts.js"></script>
+<script>
+lucide.createIcons();
+
+// ── ROLE SELECTION ────────────────────────────────────────────
+function selectRole(role) {
+  const cardUser    = document.getElementById('cardUser');
+  const cardKontrib = document.getElementById('cardKontributor');
+  const radioUser   = document.getElementById('roleUser');
+  const radioKontrib= document.getElementById('roleKontributor');
+
+  if (role === 'user') {
+    radioUser.checked   = true;
+    cardUser.className   = 'role-card selected-user';
+    cardKontrib.className= 'role-card';
+  } else {
+    radioKontrib.checked = true;
+    cardKontrib.className= 'role-card selected-kontributor';
+    cardUser.className   = 'role-card';
+  }
+}
+
+// ── PROVINCE → CITY DROPDOWN ─────────────────────────────────
+(function() {
+  const selProv = document.getElementById('selProvinsi');
+  const selKota = document.getElementById('selKota');
+
+  selProv.addEventListener('change', function() {
+    const prov   = this.value;
+    const cities = (window.PROVINSI_KOTA_JS || {})[prov] || [];
+
+    // Reset dropdown kota
+    selKota.innerHTML = '';
+    selKota.disabled  = (cities.length === 0);
+
+    if (cities.length === 0) {
+      selKota.innerHTML = '<option value="">— Pilih Provinsi dulu —</option>';
+      return;
+    }
+
+    // Tambahkan placeholder
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '— Pilih Kota/Kabupaten —';
+    selKota.appendChild(placeholder);
+
+    // Populate kota
+    cities.forEach(function(kota) {
+      const opt = document.createElement('option');
+      opt.value = kota;
+      opt.textContent = kota;
+      selKota.appendChild(opt);
+    });
+
+    selKota.disabled = false;
+  });
+})();
+</script>
 </body>
 </html>

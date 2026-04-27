@@ -1,328 +1,376 @@
 <?php
 /**
- * bps-sync.php — Halaman Sinkronisasi Data dari API BPS
+ * chart.php — Grafik Harga per Provinsi & Komoditas
  * ─────────────────────────────────────────────────────────────
- * Hanya admin_master yang bisa akses.
- *
- * FITUR:
- * 1. Tampilkan daftar 38 provinsi dari BPS API (live)
- * 2. Sync data harga komoditas per provinsi ke database
- * 3. Preview data sebelum disimpan
- * 4. Log hasil sinkronisasi
+ * RESTRICTED: Guest yang mencoba buka halaman ini TANPA login
+ * akan diarahkan ke login.php.
  * ─────────────────────────────────────────────────────────────
  */
-if (!isset($_SESSION['login'])) { header("Location: login.php"); exit; }
-if ($_SESSION['role'] !== 'admin_master') { header("Location: dashboard.php"); exit; }
-
 require __DIR__ . '/Server/koneksi.php';
-require_once __DIR__ . '/Server/bps_api.php';
 
-$pageTitle = 'Sinkronisasi Data BPS';
-$bps       = new BPS_API(BPS_API_KEY);
-$myId      = (int)$_SESSION['user_id'];
-
-$provinces = [];
-$preview   = [];
-$syncResult = null;
-$error     = '';
-
-// ── LOAD DAFTAR PROVINSI DARI BPS ────────────────────────────
-$provinces = $bps->getProvinces();
-if (empty($provinces)) {
-    // Fallback: gunakan data hardcoded jika API tidak merespons
-    $provinces = array_map(fn($name) => [
-        'domain_id'   => BPS_API::getDomainIdByProvinsi($name),
-        'domain_name' => $name,
-        'domain_url'  => '',
-    ], array_keys(PROVINSI_KOTA));
+// ── GATE: wajib login ────────────────────────────────────────
+if (!isset($_SESSION['login']) || $_SESSION['login'] !== true) {
+    redirect('login.php?redirect=chart');
 }
 
-// ── PREVIEW DATA DARI BPS ─────────────────────────────────────
-if (isset($_GET['preview'])) {
-    $domainId    = htmlspecialchars($_GET['preview']);
-    $provinsiName= htmlspecialchars($_GET['provinsi'] ?? '');
-    $preview     = $bps->getKomoditasHarga($domainId);
+$resNama  = $conn->query("SELECT DISTINCT nama FROM komoditas WHERE status='approved' ORDER BY nama ASC");
+$namaList = [];
+if ($resNama) while ($r = $resNama->fetch_assoc()) $namaList[] = $r['nama'];
 
-    // Jika API tidak merespons, tampilkan error ramah
-    if (empty($preview)) {
-        $error = "Tidak ada data dari BPS untuk domain $domainId. "
-               . "Pastikan koneksi internet tersedia dan API key valid.";
+$selProv = in_array($_GET['provinsi'] ?? '', PROVINSI_LIST) ? $_GET['provinsi'] : '';
+$selKota = esc($conn, trim($_GET['kota'] ?? ''));  // Kota/Kabupaten (dari BPS mapping)
+$selKom  = trim(esc($conn, $_GET['komoditas'] ?? ($namaList[0] ?? '')));
+
+$data    = null;
+$dataAll = [];
+
+if ($selKom) {
+    $k = esc($conn, $selKom);
+
+    if ($selKota) {
+        // Kota spesifik dipilih → cari berdasarkan lokasi
+        $r = $conn->query("SELECT * FROM komoditas WHERE status='approved' AND nama='$k'
+                           AND (lokasi='$selKota' OR lokasi LIKE '%$selKota%') LIMIT 1");
+        if ($r && $r->num_rows > 0) $data = $r->fetch_assoc();
+    } elseif ($selProv) {
+        // Provinsi dipilih → ambil data provinsi itu
+        $p = esc($conn, $selProv);
+        $r = $conn->query("SELECT * FROM komoditas WHERE status='approved' AND nama='$k' AND provinsi='$p' ORDER BY updated_at DESC LIMIT 1");
+        if ($r && $r->num_rows > 0) $data = $r->fetch_assoc();
     }
+
+    // Selalu muat semua lokasi untuk tabel perbandingan
+    $whereP = $selProv ? " AND provinsi='".esc($conn,$selProv)."'" : '';
+    $res = $conn->query("SELECT * FROM komoditas WHERE status='approved' AND nama='$k'{$whereP} ORDER BY provinsi ASC, lokasi ASC");
+    if ($res) while ($r = $res->fetch_assoc()) $dataAll[] = $r;
+
+    // Auto-select row pertama jika tidak ada pilihan spesifik
+    if (!$data && !empty($dataAll)) $data = $dataAll[0];
 }
 
-// ── SINKRONISASI KE DATABASE ──────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync'])) {
-    $domainId    = esc($conn, $_POST['domain_id']);
-    $provinsiName= esc($conn, $_POST['provinsi_name']);
-    $lokasiName  = esc($conn, $_POST['lokasi_name']  ?? $provinsiName);
-
-    $syncResult = $bps->syncKomoditasToDB($conn, $domainId, $provinsiName, $lokasiName);
-
-    // Log ke tabel pengaturan_sistem
-    $logMsg = esc($conn, "Sync BPS {$provinsiName} ({$domainId}): {$syncResult['inserted']} inserted, {$syncResult['updated']} updated — " . date('Y-m-d H:i:s'));
-    $conn->query("INSERT INTO pengaturan_sistem (kunci, nilai, label, kelompok, tipe)
-                  VALUES ('bps_last_sync_" . time() . "','$logMsg','Log Sinkronisasi BPS','Log BPS','text')
-                  ON DUPLICATE KEY UPDATE nilai='$logMsg'");
-}
-
-// ── SYNC SEMUA SEKALIGUS ──────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_all'])) {
-    $totalIns = 0; $totalUpd = 0;
-    // Sync hanya beberapa provinsi utama agar tidak timeout
-    $mainDomains = [
-        ['0000','Nasional','Indonesia'],
-        ['3100','DKI Jakarta','Jakarta Pusat'],
-        ['3200','Jawa Barat','Kota Bandung'],
-        ['3300','Jawa Tengah','Kota Semarang'],
-        ['3500','Jawa Timur','Kota Surabaya'],
-        ['3600','Banten','Kota Serang'],
-        ['5100','Bali','Kota Denpasar'],
-        ['1200','Sumatera Utara','Kota Medan'],
-        ['7300','Sulawesi Selatan','Kota Makassar'],
-    ];
-    $allResults = [];
-    foreach ($mainDomains as [$did, $prov, $lok]) {
-        $r = $bps->syncKomoditasToDB($conn, $did, $prov, $lok);
-        $totalIns += $r['inserted'];
-        $totalUpd += $r['updated'];
-        $allResults[] = "✓ {$prov}: {$r['inserted']} baru, {$r['updated']} update";
-    }
-    $syncResult = [
-        'inserted' => $totalIns,
-        'updated'  => $totalUpd,
-        'total'    => $totalIns + $totalUpd,
-        'detail'   => $allResults,
-        'errors'   => [],
-    ];
-}
+$pageTitle = $selKom ? "Harga " . htmlspecialchars($selKom) . ($selProv ? " di " . htmlspecialchars($selProv) : '') : 'Grafik Harga';
+$pageDesc  = "Pantau grafik harga " . ($selKom ?: 'komoditas') . " di Indonesia secara real-time.";
+$activeNav = 'chart';
 ?>
 <!doctype html>
 <html lang="id">
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
-  body{font-family:'Instrument Sans',sans-serif;}
-  .prov-card{transition:border-color .15s,background .15s;}
-  .prov-card:hover{border-color:rgba(16,185,129,.3);background:var(--bg-card-hover);}
-  .status-dot-ok{width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block;}
-  .status-dot-no{width:8px;height:8px;border-radius:50%;background:#64748b;display:inline-block;}
+  .filter-card:focus-within { box-shadow:0 0 0 2px rgba(16,185,129,.25); }
+  #chartWrapper { position:relative; width:100%; height:300px; }
 </style>
 </head>
-<body class="bg-[var(--bg-primary)] min-h-screen">
+<body>
+<div class="h-9 bg-[var(--bg-secondary)] border-b border-[var(--border)]"></div>
+<?php include __DIR__ . '/Assets/navbar.php'; ?>
 
-<!-- Back bar -->
-<div class="h-12 bg-[var(--bg-secondary)] border-b border-[var(--border)] flex items-center px-6 gap-4">
-  <a href="dashboard-master.php?tab=bps" class="flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
-    <i data-lucide="arrow-left" class="w-4 h-4"></i> Kembali ke Master Panel
-  </a>
-  <span class="text-[var(--border)]">|</span>
-  <h1 class="font-display font-black text-sm text-[var(--text-primary)]">
-    🔄 Sinkronisasi Data Komoditas dari BPS
-  </h1>
-  <div class="ml-auto">
-    <button data-action="toggle-theme" class="w-8 h-8 flex items-center justify-center rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition">
-      <i data-lucide="moon" data-theme-icon="toggle" class="w-3.5 h-3.5"></i>
-    </button>
+<!-- PAGE HEADER -->
+<div class="pt-28 pb-8 bg-[var(--bg-secondary)] border-b border-[var(--border)]">
+  <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav class="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-3" aria-label="Breadcrumb">
+      <a href="index.php" class="hover:text-brand-500 transition">Beranda</a>
+      <i data-lucide="chevron-right" class="w-3 h-3"></i>
+      <span>Grafik Harga</span>
+      <?php if ($selProv): ?>
+      <i data-lucide="chevron-right" class="w-3 h-3"></i>
+      <span class="text-brand-500"><?= htmlspecialchars($selProv) ?></span>
+      <?php endif; ?>
+    </nav>
+    <h1 class="font-display font-black text-2xl md:text-3xl text-[var(--text-primary)]">
+      <?php if ($selProv): ?>Harga di <span class="text-brand-500"><?= htmlspecialchars($selProv) ?></span>
+      <?php elseif ($selKom): ?>Harga <span class="text-brand-500"><?= htmlspecialchars($selKom) ?></span>
+      <?php else: ?>Grafik <span class="text-brand-500">Harga Komoditas</span><?php endif; ?>
+    </h1>
   </div>
 </div>
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-  <!-- Header info -->
-  <div class="card p-5 mb-8 border-brand-500/20 bg-brand-500/4">
-    <div class="flex items-start gap-4">
-      <div class="w-10 h-10 bg-brand-500/15 rounded-xl flex items-center justify-center flex-shrink-0">
-        <i data-lucide="database" class="w-5 h-5 text-brand-500"></i>
-      </div>
-      <div class="flex-1">
-        <h2 class="font-display font-bold text-[var(--text-primary)] mb-1">
-          Web API BPS — Harga Eceran Rata-Rata Komoditas (var=2310)
-        </h2>
-        <p class="text-sm text-[var(--text-secondary)] leading-relaxed mb-3">
-          Data ini bersumber langsung dari Badan Pusat Statistik Indonesia.
-          Variabel <code class="bg-[var(--surface)] px-1.5 py-0.5 rounded text-xs">2310</code>
-          berisi harga eceran rata-rata komoditas pangan tahun 2024 (kode BPS: th=126).
-        </p>
-        <div class="flex flex-wrap gap-2 text-xs">
-          <span class="px-2.5 py-1 rounded-lg bg-[var(--surface)] border border-[var(--border)] font-mono text-[var(--text-muted)]">
-            API Key: <?= substr(BPS_API_KEY,0,8) ?>...
-          </span>
-          <a href="<?= $bps->buildApiUrl('province') ?>" target="_blank" rel="noopener"
-             class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/15 transition">
-            <i data-lucide="external-link" class="w-3 h-3"></i> API Provinsi
-          </a>
-          <a href="<?= $bps->buildApiUrl('komoditas','0000') ?>" target="_blank" rel="noopener"
-             class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-500/10 border border-brand-500/20 text-brand-500 hover:bg-brand-500/15 transition">
-            <i data-lucide="external-link" class="w-3 h-3"></i> API Komoditas (Nasional)
-          </a>
+  <!-- FILTER — Komoditas + Provinsi + Kota cascade dari BPS API -->
+  <div class="card filter-card p-5 mb-8">
+    <form method="GET" action="chart.php">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+        <!-- Komoditas -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
+            <i data-lucide="layers" class="w-3 h-3 inline mr-1"></i> Komoditas
+          </label>
+          <?php if (!empty($namaList)): ?>
+          <select name="komoditas" id="chartKomoditas" class="input-field">
+            <?php foreach ($namaList as $n): ?>
+            <option value="<?= htmlspecialchars($n) ?>" <?= $selKom===$n?'selected':'' ?>><?= htmlspecialchars($n) ?></option>
+            <?php endforeach; ?>
+          </select>
+          <?php else: ?>
+          <div class="input-field text-[var(--text-muted)]">Belum ada data</div>
+          <?php endif; ?>
+        </div>
+        <!-- Provinsi -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
+            <i data-lucide="map" class="w-3 h-3 inline mr-1"></i> Provinsi
+            <span class="font-normal normal-case text-[var(--text-muted)] ml-1">— BPS</span>
+          </label>
+          <select name="provinsi" id="chartProvinsi" class="input-field" onchange="updateChartKota(this.value)">
+            <option value="">— Semua Provinsi —</option>
+            <?php foreach (PROVINSI_LIST as $p): ?>
+            <option value="<?= htmlspecialchars($p) ?>" <?= $selProv===$p?'selected':'' ?>><?= htmlspecialchars($p) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <!-- Kota/Kabupaten (dinamis dari PROVINSI_KOTA) -->
+        <div>
+          <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
+            <i data-lucide="map-pin" class="w-3 h-3 inline mr-1"></i> Kota / Kabupaten
+          </label>
+          <select name="kota" id="chartKota" class="input-field">
+            <option value="">— Semua Kota —</option>
+            <?php if ($selProv && isset(PROVINSI_KOTA[$selProv])): foreach(PROVINSI_KOTA[$selProv] as $kt): ?>
+            <option value="<?= htmlspecialchars($kt) ?>" <?= $selKota===$kt?'selected':'' ?>><?= htmlspecialchars($kt) ?></option>
+            <?php endforeach; endif; ?>
+          </select>
+          <p class="text-[10px] text-[var(--text-muted)] mt-1">Pilih provinsi → kota terisi otomatis</p>
+        </div>
+        <!-- Tombol -->
+        <div class="flex items-end">
+          <button type="submit" class="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-display font-bold rounded-xl text-sm transition shadow shadow-brand-600/20">
+            <i data-lucide="search" class="w-4 h-4"></i> Tampilkan
+          </button>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- Sync All button -->
-  <div class="card p-5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-    <div>
-      <h3 class="font-display font-bold text-[var(--text-primary)] mb-1">Sinkronisasi Massal</h3>
-      <p class="text-xs text-[var(--text-muted)]">Sync otomatis 9 provinsi utama: Nasional, DKI Jakarta, Jawa Barat, Jawa Tengah, Jawa Timur, Banten, Bali, Sumatera Utara, Sulawesi Selatan.</p>
-    </div>
-    <form method="POST">
-      <button type="submit" name="sync_all"
-              onclick="return confirm('Sinkronisasi massal dari BPS?\nIni akan memakan waktu 30-60 detik.')"
-              class="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-sm transition shadow shadow-brand-600/20 font-display whitespace-nowrap">
-        <i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync 9 Provinsi Utama
-      </button>
     </form>
   </div>
 
-  <!-- Sync result -->
-  <?php if ($syncResult): ?>
-  <div class="card p-5 mb-6 border-brand-500/20 bg-brand-500/4">
-    <div class="flex items-center gap-3 mb-3">
-      <i data-lucide="check-circle" class="w-5 h-5 text-brand-500 flex-shrink-0"></i>
-      <h3 class="font-display font-bold text-[var(--text-primary)]">Sinkronisasi Selesai!</h3>
+  <?php if ($data):
+    $hist    = json_decode($data['history'] ?? '[]', true);
+    $selisih = (int)$data['harga_sekarang'] - (int)$data['harga_kemarin'];
+    $persen  = $data['harga_kemarin'] > 0 ? round(abs($selisih)/$data['harga_kemarin']*100,2) : 0;
+    $naik=$selisih>0; $turun=$selisih<0;
+    $tc = $naik?'text-brand-500':($turun?'text-red-400':'text-[var(--text-muted)]');
+    $ti = $naik?'▲':($turun?'▼':'■');
+  ?>
+  <!-- Stat cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="card p-5">
+      <p class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5"><i data-lucide="trending-up" class="w-3.5 h-3.5 text-brand-500"></i> Harga Sekarang</p>
+      <div class="font-display font-black text-2xl <?= $tc ?>"><?= rupiah((int)$data['harga_sekarang']) ?></div>
+      <div class="text-xs text-[var(--text-muted)] mt-1">per <?= htmlspecialchars($data['satuan']??'kg') ?> · <?= htmlspecialchars($data['lokasi']) ?>, <?= htmlspecialchars($data['provinsi']) ?></div>
     </div>
-    <div class="grid grid-cols-3 gap-4 mb-4">
-      <div class="p-3 rounded-xl bg-brand-500/8 border border-brand-500/20 text-center">
-        <div class="font-display font-black text-2xl text-brand-500"><?= $syncResult['inserted'] ?></div>
-        <div class="text-xs text-[var(--text-muted)]">Data Baru</div>
-      </div>
-      <div class="p-3 rounded-xl bg-blue-500/8 border border-blue-500/20 text-center">
-        <div class="font-display font-black text-2xl text-blue-400"><?= $syncResult['updated'] ?></div>
-        <div class="text-xs text-[var(--text-muted)]">Data Diperbarui</div>
-      </div>
-      <div class="p-3 rounded-xl bg-[var(--surface)] border border-[var(--border)] text-center">
-        <div class="font-display font-black text-2xl text-[var(--text-primary)]"><?= $syncResult['total'] ?></div>
-        <div class="text-xs text-[var(--text-muted)]">Total Diproses</div>
-      </div>
+    <div class="card p-5">
+      <p class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5"><i data-lucide="calendar" class="w-3.5 h-3.5"></i> Harga Kemarin</p>
+      <div class="font-display font-black text-2xl text-[var(--text-secondary)]"><?= rupiah((int)$data['harga_kemarin']) ?></div>
     </div>
-    <?php if (!empty($syncResult['detail'])): ?>
-    <div class="space-y-1">
-      <?php foreach ($syncResult['detail'] as $d): ?>
-      <div class="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
-        <span class="status-dot-ok"></span> <?= htmlspecialchars($d) ?>
-      </div>
-      <?php endforeach; ?>
+    <div class="card p-5">
+      <p class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5"><i data-lucide="activity" class="w-3.5 h-3.5"></i> Perubahan</p>
+      <div class="font-display font-black text-2xl <?= $tc ?>"><?= $ti ?> <?= $naik?'+':'' ?><?= number_format($selisih,0,',','.') ?> <span class="text-sm font-normal">(<?= $persen ?>%)</span></div>
     </div>
-    <?php endif; ?>
-    <?php if (!empty($syncResult['errors'])): ?>
-    <div class="mt-3 text-xs text-red-400">
-      Error: <?= implode(', ', array_map('htmlspecialchars', $syncResult['errors'])) ?>
+  </div>
+
+  <!-- Grafik 7 hari -->
+  <div class="card p-6 mb-6">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="font-display font-bold text-[var(--text-primary)]">Grafik Pergerakan 7 Hari</h2>
+      <span class="text-xs text-[var(--text-muted)]"><?= htmlspecialchars($data['nama']) ?> · <?= htmlspecialchars($data['lokasi']) ?>, <?= htmlspecialchars($data['provinsi']) ?></span>
     </div>
-    <?php endif; ?>
+    <div id="chartWrapper"><canvas id="mainChart"></canvas></div>
+  </div>
+
+  <!-- History table riwayat 7 hari -->
+  <div class="card overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-[var(--border)] flex items-center gap-2">
+      <i data-lucide="clock" class="w-4 h-4 text-brand-500"></i>
+      <h2 class="font-display font-bold text-[var(--text-primary)]">Riwayat 7 Hari Terakhir</h2>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Hari</th><th>Harga (Rp)</th><th>Perubahan</th><th>Indikator</th></tr></thead>
+      <tbody id="histTbody"></tbody>
+    </table>
   </div>
   <?php endif; ?>
 
-  <!-- Error -->
-  <?php if ($error): ?>
-  <div class="msg-error mb-6 flex items-center gap-3">
-    <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
-    <?= htmlspecialchars($error) ?>
+  <?php if (!empty($dataAll) && count($dataAll) > 1): ?>
+  <!-- Tabel semua lokasi -->
+  <div class="card overflow-hidden mb-6">
+    <div class="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i data-lucide="map" class="w-4 h-4 text-brand-500"></i>
+        <h2 class="font-display font-bold text-[var(--text-primary)]"><span class="text-brand-500"><?= htmlspecialchars($selKom) ?></span> — Semua Lokasi (<?= count($dataAll) ?>)</h2>
+      </div>
+      <?php if ($selProv): ?>
+      <a href="chart.php?komoditas=<?= urlencode($selKom) ?>" class="text-xs text-brand-500 hover:underline">Lihat semua provinsi →</a>
+      <?php endif; ?>
+    </div>
+    <table class="data-table">
+      <thead><tr><th>Lokasi</th><th>Provinsi</th><th>Kemarin</th><th>Sekarang</th><th>Tren</th></tr></thead>
+      <tbody>
+        <?php foreach ($dataAll as $ri => $r):
+          $n=(int)$r['harga_sekarang']>(int)$r['harga_kemarin'];
+          $t=(int)$r['harga_sekarang']<(int)$r['harga_kemarin'];
+          $isActive = ($data && $r['id']==$data['id']);
+        ?>
+        <tr class="<?= $isActive?'bg-brand-500/[0.03]':'' ?>" style="cursor:pointer" onclick="switchChart(<?= $ri ?>)" title="Klik untuk lihat grafik">
+          <td class="font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <?php if($isActive): ?><span class="w-1.5 h-1.5 rounded-full bg-brand-500 flex-shrink-0"></span><?php endif; ?>
+            <?= htmlspecialchars($r['lokasi']) ?>
+          </td>
+          <td class="text-xs text-[var(--text-muted)]"><?= htmlspecialchars($r['provinsi']?:'—') ?></td>
+          <td class="text-[var(--text-muted)]"><?= rupiah((int)$r['harga_kemarin']) ?></td>
+          <td class="font-bold <?= $n?'text-brand-500':($t?'text-red-400':'text-[var(--text-primary)]') ?>"><?= rupiah((int)$r['harga_sekarang']) ?></td>
+          <td><?= $n?'<span class="badge badge-green">▲ Naik</span>':($t?'<span class="badge badge-red">▼ Turun</span>':'<span class="badge badge-slate">■ Stabil</span>') ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
   </div>
   <?php endif; ?>
 
-  <!-- Preview data -->
-  <?php if (!empty($preview) && isset($_GET['preview'])): ?>
-  <div class="card overflow-hidden mb-8">
-    <div class="px-5 py-4 border-b border-[var(--border)] flex items-center justify-between">
-      <h3 class="font-display font-bold text-[var(--text-primary)] flex items-center gap-2">
-        <i data-lucide="eye" class="w-4 h-4 text-brand-500"></i>
-        Preview: <?= count($preview) ?> komoditas dari <strong><?= htmlspecialchars($_GET['provinsi']??'') ?></strong>
-      </h3>
-      <!-- Form Sync untuk provinsi ini -->
-      <form method="POST" class="flex items-center gap-2">
-        <input type="hidden" name="domain_id"     value="<?= htmlspecialchars($_GET['preview']) ?>"/>
-        <input type="hidden" name="provinsi_name" value="<?= htmlspecialchars($_GET['provinsi']??'') ?>"/>
-        <input type="hidden" name="lokasi_name"   value="<?= htmlspecialchars($_GET['provinsi']??'') ?>"/>
-        <button type="submit" name="sync"
-                class="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-lg text-sm transition font-display">
-          <i data-lucide="download" class="w-3.5 h-3.5"></i> Simpan ke Database
-        </button>
-      </form>
+  <?php if (!$data && empty($dataAll) && $selKom): ?>
+  <!-- Data Tidak Ada -->
+  <div class="card p-14 text-center border-amber-500/20">
+    <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="search-x" class="w-8 h-8 text-amber-400"></i>
     </div>
-    <div class="overflow-x-auto">
-      <table class="data-table">
-        <thead><tr><th>Nama Komoditas</th><th>Kategori</th><th>Harga (Rp)</th><th>Satuan</th></tr></thead>
-        <tbody>
-          <?php foreach ($preview as $item): ?>
-          <tr>
-            <td class="font-semibold text-[var(--text-primary)]"><?= htmlspecialchars($item['nama']) ?></td>
-            <td><span class="badge badge-slate text-[10px]"><?= htmlspecialchars($item['kategori']) ?></span></td>
-            <td class="font-display font-bold text-brand-500"><?= rupiah($item['harga']) ?></td>
-            <td class="text-[var(--text-muted)] text-xs"><?= htmlspecialchars($item['satuan']) ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+    <h3 class="font-display font-black text-2xl text-[var(--text-primary)] mb-2">Data Tidak Ada</h3>
+    <p class="text-[var(--text-secondary)] text-sm mb-1">Harga <strong class="text-amber-400"><?= htmlspecialchars($selKom) ?></strong><?= $selProv ? ' di <strong>'.$selProv.'</strong>' : '' ?> belum tersedia.</p>
+    <p class="text-[var(--text-muted)] text-xs mb-7 max-w-sm mx-auto">Kontributor lapangan di wilayah ini belum menginput data. Jadilah kontributor untuk melengkapi data nasional.</p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <a href="chart.php" class="px-5 py-2.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)] rounded-xl text-sm font-semibold hover:bg-[var(--surface-hover)] transition">
+        Coba Komoditas Lain
+      </a>
+      <a href="register.php" class="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition shadow shadow-brand-600/20">
+        <i data-lucide="user-plus" class="w-4 h-4"></i> Jadilah Kontributor
+      </a>
     </div>
+  </div>
+  <?php elseif (!$selKom): ?>
+  <div class="card p-12 text-center">
+    <i data-lucide="bar-chart-2" class="w-14 h-14 mx-auto opacity-20 mb-4"></i>
+    <h3 class="font-display font-bold text-lg text-[var(--text-primary)] mb-2">Pilih Komoditas</h3>
+    <p class="text-sm text-[var(--text-muted)]">Pilih komoditas dari dropdown di atas lalu klik Tampilkan.</p>
   </div>
   <?php endif; ?>
+</div>
 
-  <!-- Daftar provinsi -->
-  <div>
-    <h3 class="font-display font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
-      <i data-lucide="map" class="w-4 h-4 text-brand-500"></i>
-      Daftar Provinsi (<?= count($provinces) ?> domain BPS)
-    </h3>
+<?php include __DIR__ . '/Assets/footer.php'; ?>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      <!-- Tambah Nasional/Pusat -->
-      <div class="card prov-card p-4 flex items-center justify-between gap-3">
-        <div>
-          <div class="font-bold text-[var(--text-primary)] text-sm">🏛️ Nasional (Pusat)</div>
-          <div class="text-[10px] text-[var(--text-muted)] mt-0.5">domain_id: 0000</div>
-        </div>
-        <div class="flex gap-2">
-          <a href="?preview=0000&provinsi=Nasional"
-             class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/15 transition">
-            <i data-lucide="eye" class="w-3 h-3"></i> Preview
-          </a>
-          <form method="POST">
-            <input type="hidden" name="domain_id"     value="0000"/>
-            <input type="hidden" name="provinsi_name" value="Nasional"/>
-            <input type="hidden" name="lokasi_name"   value="Indonesia"/>
-            <button name="sync" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-brand-500/10 border border-brand-500/20 text-brand-500 hover:bg-brand-500/15 transition">
-              <i data-lucide="download" class="w-3 h-3"></i> Sync
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <?php foreach ($provinces as $prov):
-        $did  = $prov['domain_id']   ?? '';
-        $name = $prov['domain_name'] ?? '';
-        if (!$did || !$name) continue;
-        $isPreviewing = (($_GET['preview'] ?? '') === $did);
-      ?>
-      <div class="card prov-card p-4 flex items-center justify-between gap-3 <?= $isPreviewing?'border-brand-500/30 bg-brand-500/4':'' ?>">
-        <div>
-          <div class="font-bold text-[var(--text-primary)] text-sm"><?= htmlspecialchars($name) ?></div>
-          <div class="text-[10px] text-[var(--text-muted)] mt-0.5">domain_id: <?= htmlspecialchars($did) ?></div>
-        </div>
-        <div class="flex gap-2 flex-shrink-0">
-          <a href="?preview=<?= urlencode($did) ?>&provinsi=<?= urlencode($name) ?>"
-             class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold
-                    bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/15 transition">
-            <i data-lucide="eye" class="w-3 h-3"></i> Preview
-          </a>
-          <form method="POST">
-            <input type="hidden" name="domain_id"     value="<?= htmlspecialchars($did) ?>"/>
-            <input type="hidden" name="provinsi_name" value="<?= htmlspecialchars($name) ?>"/>
-            <input type="hidden" name="lokasi_name"   value="<?= htmlspecialchars($name) ?>"/>
-            <button name="sync"
-                    class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold
-                           bg-brand-500/10 border border-brand-500/20 text-brand-500 hover:bg-brand-500/15 transition">
-              <i data-lucide="download" class="w-3 h-3"></i> Sync
-            </button>
-          </form>
-        </div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </div>
-
-</div><!-- end container -->
-
+<script>
+window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
+</script>
 <script src="/scripts.js"></script>
+<script>
+lucide.createIcons();
+
+// Provinsi → Kota cascade untuk filter chart.php
+function updateChartKota(provinsi) {
+  const sel    = document.getElementById('chartKota');
+  const cities = (window.PROVINSI_KOTA_JS || {})[provinsi] || [];
+  sel.innerHTML = '<option value="">— Semua Kota —</option>';
+  cities.forEach(kota => {
+    const o = document.createElement('option');
+    o.value = kota; o.textContent = kota;
+    sel.appendChild(o);
+  });
+  sel.disabled = cities.length === 0;
+}
+
+// Init: jika sudah ada provinsi terpilih dari URL, isi kotanya
+(function(){
+  const prov = document.getElementById('chartProvinsi')?.value;
+  const curKota = <?= json_encode($selKota) ?>;
+  if (prov) {
+    updateChartKota(prov);
+    if (curKota) document.getElementById('chartKota').value = curKota;
+  }
+})();
+</script>
+<?php if ($data): ?>
+<script>
+// All data rows for chart switching when user clicks table row
+const allRows = <?= json_encode(array_map(fn($r)=>[
+    'lokasi'   => $r['lokasi'],
+    'provinsi' => $r['provinsi'],
+    'history'  => json_decode($r['history']??'[]',true),
+    'sekarang' => (int)$r['harga_sekarang'],
+    'kemarin'  => (int)$r['harga_kemarin'],
+    'satuan'   => $r['satuan']??'kg',
+], $dataAll), JSON_UNESCAPED_UNICODE) ?>;
+
+const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
+let activeChart = null;
+
+(function initChart() {
+  const ctx = document.getElementById('mainChart')?.getContext('2d');
+  if (!ctx) return;
+  const t   = getChartTheme();
+  let grad  = ctx.createLinearGradient(0,0,0,300);
+  grad.addColorStop(0,'rgba(16,185,129,.35)'); grad.addColorStop(1,'rgba(16,185,129,0)');
+
+  const initData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history']??'[]',true)),JSON_UNESCAPED_UNICODE) ?>;
+
+  activeChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:LABELS, datasets:[{ data:initData, borderColor:'#10b981', backgroundColor:grad,
+      fill:true, tension:.4, borderWidth:2.5,
+      pointBackgroundColor:t.bgColor, pointBorderColor:'#10b981', pointRadius:5, pointHoverRadius:7 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>'Rp '+c.parsed.y.toLocaleString('id-ID')}} },
+      scales:{ y:{beginAtZero:false, ticks:{color:t.textColor,callback:v=>'Rp '+v.toLocaleString('id-ID')}, grid:{color:t.gridColor}},
+               x:{ticks:{color:t.textColor}, grid:{display:false}} } }
+  });
+
+  // Render history table from chart data
+  function renderHistTable(histArr) {
+    const tbody = document.getElementById('histTbody');
+    if (!tbody) return;
+    const maxH = Math.max(...histArr), minH = Math.min(...histArr);
+    tbody.innerHTML = '';
+    histArr.forEach((h,i) => {
+    const prev=i>0?histData[i-1]:h, diff=h-prev, pct=prev>0?Math.abs(diff/prev*100).toFixed(2):0;
+    const isToday=i===histData.length-1;
+    const barPct = maxH>minH?Math.round((h-minH)/(maxH-minH)*100):50;
+    const barCol = diff>0?'#10b981':diff<0?'#ef4444':'#94a3b8';
+    let badge='';
+    if(i===0) badge='<span class="text-[var(--text-muted)] text-xs">—</span>';
+    else if(diff>0) badge=`<span class="badge badge-green">▲ +${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
+    else if(diff<0) badge=`<span class="badge badge-red">▼ ${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
+    else badge='<span class="badge badge-slate">■ Stabil</span>';
+      tbody.innerHTML+=`<tr class="${isToday?'bg-brand-500/[0.03]':''}">
+        <td><span class="font-medium ${isToday?'text-brand-500 font-bold':'text-[var(--text-secondary)]'}">${LABELS[i]}</span>${isToday?'<span class="ml-1.5 badge badge-green text-[9px]">HARI INI</span>':''}</td>
+        <td class="font-display font-bold text-[var(--text-primary)]">Rp ${h.toLocaleString('id-ID')}</td>
+        <td>${badge}</td>
+        <td><div class="w-24 h-1.5 rounded-full bg-[var(--surface)] overflow-hidden"><div class="h-full rounded-full" style="width:${barPct}%;background:${barCol}"></div></div></td>
+      </tr>`;
+    });
+  }
+  renderHistTable(initData);
+
+  document.addEventListener('themeChanged', () => {
+    if (!activeChart) return;
+    const nt = getChartTheme();
+    activeChart.options.scales.y.ticks.color = nt.textColor;
+    activeChart.options.scales.y.grid.color  = nt.gridColor;
+    activeChart.options.scales.x.ticks.color = nt.textColor;
+    activeChart.data.datasets[0].pointBackgroundColor = nt.bgColor;
+    activeChart.update();
+  });
+})();
+
+// switchChart: called when user clicks a row in the all-locations table
+function switchChart(idx) {
+  const row = allRows[idx];
+  if (!row || !activeChart) return;
+  const hist = Array.isArray(row.history) ? row.history : [];
+  const padded = hist.slice(-7);
+  while(padded.length < 7) padded.unshift(padded[0] ?? 0);
+  activeChart.data.datasets[0].data = padded;
+  activeChart.update('active');
+  renderHistTable(padded);
+  // Scroll to chart
+  document.getElementById('chartWrapper')?.scrollIntoView({behavior:'smooth', block:'center'});
+}
+</script>
+<?php endif; ?>
 <script>lucide.createIcons();</script>
 </body>
 </html>

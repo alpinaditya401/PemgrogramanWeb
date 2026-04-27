@@ -53,7 +53,8 @@ $pageKeywords = isset($pageKeywords) ? htmlspecialchars($pageKeywords) : 'harga 
 <!-- Lucide Icons (ikon SVG yang ringan) -->
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
 <!-- Chart.js untuk grafik (dimuat di HEAD agar siap sebelum script chart) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 <!--
   DARK MODE ANTI-FLICKER SCRIPT
   ─────────────────────────────
