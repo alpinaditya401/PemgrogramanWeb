@@ -54,18 +54,17 @@ $activeNav = 'chart';
 ?>
 <!doctype html>
 <html lang="id">
-<head>
-<?php include __DIR__ . '/Assets/head.php'; ?>
+<head><?php include __DIR__ . '/Assets/head.php'; ?>
 <style>
   .filter-card:focus-within { box-shadow:0 0 0 2px rgba(16,185,129,.25); }
   #chartWrapper { position:relative; width:100%; height:300px; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="h-9 bg-[var(--bg-secondary)] border-b border-[var(--border)]"></div>
 <?php include __DIR__ . '/Assets/navbar.php'; ?>
 
+<!-- PAGE HEADER -->
 <div class="pt-28 pb-8 bg-[var(--bg-secondary)] border-b border-[var(--border)]">
   <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8">
     <nav class="flex items-center gap-1.5 text-xs text-[var(--text-muted)] mb-3" aria-label="Breadcrumb">
@@ -87,9 +86,11 @@ $activeNav = 'chart';
 
 <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
+  <!-- FILTER — Komoditas + Provinsi + Kota cascade dari BPS API -->
   <div class="card filter-card p-5 mb-8">
     <form method="GET" action="chart.php">
       <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+        <!-- Komoditas -->
         <div>
           <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
             <i data-lucide="layers" class="w-3 h-3 inline mr-1"></i> Komoditas
@@ -104,6 +105,7 @@ $activeNav = 'chart';
           <div class="input-field text-[var(--text-muted)]">Belum ada data</div>
           <?php endif; ?>
         </div>
+        <!-- Provinsi -->
         <div>
           <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
             <i data-lucide="map" class="w-3 h-3 inline mr-1"></i> Provinsi
@@ -116,6 +118,7 @@ $activeNav = 'chart';
             <?php endforeach; ?>
           </select>
         </div>
+        <!-- Kota/Kabupaten (dinamis dari PROVINSI_KOTA) -->
         <div>
           <label class="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
             <i data-lucide="map-pin" class="w-3 h-3 inline mr-1"></i> Kota / Kabupaten
@@ -128,6 +131,7 @@ $activeNav = 'chart';
           </select>
           <p class="text-[10px] text-[var(--text-muted)] mt-1">Pilih provinsi → kota terisi otomatis</p>
         </div>
+        <!-- Tombol -->
         <div class="flex items-end">
           <button type="submit" class="w-full flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-display font-bold rounded-xl text-sm transition shadow shadow-brand-600/20">
             <i data-lucide="search" class="w-4 h-4"></i> Tampilkan
@@ -138,12 +142,14 @@ $activeNav = 'chart';
   </div>
 
   <?php if ($data):
+    $hist    = json_decode($data['history'] ?? '[]', true);
     $selisih = (int)$data['harga_sekarang'] - (int)$data['harga_kemarin'];
     $persen  = $data['harga_kemarin'] > 0 ? round(abs($selisih)/$data['harga_kemarin']*100,2) : 0;
     $naik=$selisih>0; $turun=$selisih<0;
     $tc = $naik?'text-brand-500':($turun?'text-red-400':'text-[var(--text-muted)]');
     $ti = $naik?'▲':($turun?'▼':'■');
   ?>
+  <!-- Stat cards -->
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
     <div class="card p-5">
       <p class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-1.5"><i data-lucide="trending-up" class="w-3.5 h-3.5 text-brand-500"></i> Harga Sekarang</p>
@@ -160,6 +166,7 @@ $activeNav = 'chart';
     </div>
   </div>
 
+  <!-- Grafik 7 hari -->
   <div class="card p-6 mb-6">
     <div class="flex items-center justify-between mb-1">
       <h2 class="font-display font-bold text-[var(--text-primary)]">Grafik Pergerakan 7 Hari</h2>
@@ -168,6 +175,7 @@ $activeNav = 'chart';
     <div id="chartWrapper"><canvas id="mainChart"></canvas></div>
   </div>
 
+  <!-- History table riwayat 7 hari -->
   <div class="card overflow-hidden mb-6">
     <div class="px-6 py-4 border-b border-[var(--border)] flex items-center gap-2">
       <i data-lucide="clock" class="w-4 h-4 text-brand-500"></i>
@@ -181,6 +189,7 @@ $activeNav = 'chart';
   <?php endif; ?>
 
   <?php if (!empty($dataAll) && count($dataAll) > 1): ?>
+  <!-- Tabel semua lokasi -->
   <div class="card overflow-hidden mb-6">
     <div class="px-6 py-4 border-b border-[var(--border)] flex items-center justify-between">
       <div class="flex items-center gap-2">
@@ -216,12 +225,22 @@ $activeNav = 'chart';
   <?php endif; ?>
 
   <?php if (!$data && empty($dataAll) && $selKom): ?>
+  <!-- Data Tidak Ada -->
   <div class="card p-14 text-center border-amber-500/20">
     <div class="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
       <i data-lucide="search-x" class="w-8 h-8 text-amber-400"></i>
     </div>
     <h3 class="font-display font-black text-2xl text-[var(--text-primary)] mb-2">Data Tidak Ada</h3>
     <p class="text-[var(--text-secondary)] text-sm mb-1">Harga <strong class="text-amber-400"><?= htmlspecialchars($selKom) ?></strong><?= $selProv ? ' di <strong>'.$selProv.'</strong>' : '' ?> belum tersedia.</p>
+    <p class="text-[var(--text-muted)] text-xs mb-7 max-w-sm mx-auto">Kontributor lapangan di wilayah ini belum menginput data. Jadilah kontributor untuk melengkapi data nasional.</p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <a href="chart.php" class="px-5 py-2.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)] rounded-xl text-sm font-semibold hover:bg-[var(--surface-hover)] transition">
+        Coba Komoditas Lain
+      </a>
+      <a href="register.php" class="flex items-center gap-2 px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition shadow shadow-brand-600/20">
+        <i data-lucide="user-plus" class="w-4 h-4"></i> Jadilah Kontributor
+      </a>
+    </div>
   </div>
   <?php elseif (!$selKom): ?>
   <div class="card p-12 text-center">
@@ -241,6 +260,7 @@ window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|
 <script>
 lucide.createIcons();
 
+// Provinsi → Kota cascade untuk filter chart.php
 function updateChartKota(provinsi) {
   const sel    = document.getElementById('chartKota');
   const cities = (window.PROVINSI_KOTA_JS || {})[provinsi] || [];
@@ -253,6 +273,7 @@ function updateChartKota(provinsi) {
   sel.disabled = cities.length === 0;
 }
 
+// Init: jika sudah ada provinsi terpilih dari URL, isi kotanya
 (function(){
   const prov = document.getElementById('chartProvinsi')?.value;
   const curKota = <?= json_encode($selKota) ?>;
@@ -262,36 +283,23 @@ function updateChartKota(provinsi) {
   }
 })();
 </script>
-
 <?php if ($data): ?>
-<?php
-// PROSES DATA DI PHP DENGAN SANGAT AMAN
-$safeAllRows = [];
-foreach ($dataAll as $r) {
-    $hist = isset($r['history']) ? json_decode($r['history'], true) : [];
-    $safeAllRows[] = [
-        'lokasi'   => $r['lokasi'] ?? '',
-        'provinsi' => $r['provinsi'] ?? '',
-        'history'  => is_array($hist) ? array_values($hist) : [],
-        'sekarang' => (int)($r['harga_sekarang'] ?? 0),
-        'kemarin'  => (int)($r['harga_kemarin'] ?? 0),
-        'satuan'   => $r['satuan'] ?? 'kg'
-    ];
-}
-$fallbackHist = [];
-if (isset($data['history'])) {
-    $dec = json_decode($data['history'], true);
-    if (is_array($dec)) $fallbackHist = array_values($dec);
-}
-?>
 <script>
-// AMBIL DATA JSON MURNI (ANTI ERROR)
-const allRows = <?php echo json_encode($safeAllRows); ?>;
-const fallbackData = <?php echo json_encode($fallbackHist); ?>;
+// All data rows for chart switching when user clicks table row
+const allRows = <?= json_encode(array_map(fn($r)=>[
+    'lokasi'   => $r['lokasi'],
+    'provinsi' => $r['provinsi'],
+    'history'  => json_decode($r['history']??'[]',true),
+    'sekarang' => (int)$r['harga_sekarang'],
+    'kemarin'  => (int)$r['harga_kemarin'],
+    'satuan'   => $r['satuan']??'kg',
+], $dataAll), JSON_UNESCAPED_UNICODE) ?>;
 
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
 
+
+// ── renderHistTable: fungsi global agar bisa dipanggil switchChart ──
 function renderHistTable(histArr) {
   const tbody = document.getElementById('histTbody');
   if (!tbody) return;
@@ -304,13 +312,11 @@ function renderHistTable(histArr) {
     const isToday = i === histArr.length - 1;
     const barPct  = maxH > minH ? Math.round((h - minH) / (maxH - minH) * 100) : 50;
     const barCol  = diff > 0 ? '#10b981' : diff < 0 ? '#ef4444' : '#94a3b8';
-    
     let badge = '';
     if (i === 0) badge = '<span class="text-[var(--text-muted)] text-xs">—</span>';
     else if (diff > 0) badge = `<span class="badge badge-green">▲ +${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
     else if (diff < 0) badge = `<span class="badge badge-red">▼ ${diff.toLocaleString('id-ID')} (${pct}%)</span>`;
     else badge = '<span class="badge badge-slate">■ Stabil</span>';
-    
     tbody.innerHTML += `<tr class="${isToday ? 'bg-brand-500/[0.03]' : ''}">
       <td><span class="font-medium ${isToday ? 'text-brand-500 font-bold' : 'text-[var(--text-secondary)]'}">${LABELS[i]}</span>${isToday ? '<span class="ml-1.5 badge badge-green text-[9px]">HARI INI</span>' : ''}</td>
       <td class="font-display font-bold text-[var(--text-primary)]">Rp ${h.toLocaleString('id-ID')}</td>
@@ -321,69 +327,30 @@ function renderHistTable(histArr) {
 }
 
 (function initChart() {
-  const canvas = document.getElementById('mainChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  
-  if (typeof Chart === 'undefined') {
-    console.error('Library Chart.js belum dimuat dengan baik.');
-    return;
-  }
+  const ctx = document.getElementById('mainChart')?.getContext('2d');
+  if (!ctx) return;
+  const t   = getChartTheme();
+  let grad  = ctx.createLinearGradient(0,0,0,300);
+  grad.addColorStop(0,'rgba(16,185,129,.35)'); grad.addColorStop(1,'rgba(16,185,129,0)');
 
-  // Gunakan tema dari file scripts.js kamu
-  const t = typeof getChartTheme === 'function' ? getChartTheme() : { textColor: '#64748b', gridColor: 'rgba(0,0,0,0.05)', bgColor: '#ffffff' };
-  
-  let grad = ctx.createLinearGradient(0,0,0,300);
-  grad.addColorStop(0,'rgba(16,185,129,.35)'); 
-  grad.addColorStop(1,'rgba(16,185,129,0)');
-
-  // Ambil data pertama
-  let initData = allRows[0]?.history ?? fallbackData;
-  if (!Array.isArray(initData)) initData = [];
-  
-  // Padding paksa 7 data agar sesuai titik Chart.js
-  const paddedData = initData.slice(-7);
-  while(paddedData.length < 7) {
-    paddedData.unshift(paddedData[0] ?? 0);
-  }
+  const initData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history']??'[]',true)),JSON_UNESCAPED_UNICODE) ?>;
 
   activeChart = new Chart(ctx, {
-    type: 'line',
-    data: { 
-      labels: LABELS, 
-      datasets: [{ 
-        data: paddedData, 
-        borderColor: '#10b981', 
-        backgroundColor: grad,
-        fill: true, 
-        tension: 0.4, 
-        borderWidth: 2.5,
-        pointBackgroundColor: t.bgColor, 
-        pointBorderColor: '#10b981', 
-        pointRadius: 5, 
-        pointHoverRadius: 7 
-      }] 
-    },
-    options: { 
-      responsive: true, 
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: { 
-        legend: { display: false }, 
-        tooltip: { callbacks: { label: c => 'Rp ' + c.parsed.y.toLocaleString('id-ID') } } 
-      },
-      scales: { 
-        y: { beginAtZero: false, ticks: { color: t.textColor, callback: v => 'Rp ' + v.toLocaleString('id-ID') }, grid: { color: t.gridColor } },
-        x: { ticks: { color: t.textColor }, grid: { display: false } } 
-      } 
-    }
+    type:'line',
+    data:{ labels:LABELS, datasets:[{ data:initData, borderColor:'#10b981', backgroundColor:grad,
+      fill:true, tension:.4, borderWidth:2.5,
+      pointBackgroundColor:t.bgColor, pointBorderColor:'#10b981', pointRadius:5, pointHoverRadius:7 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>'Rp '+c.parsed.y.toLocaleString('id-ID')}} },
+      scales:{ y:{beginAtZero:false, ticks:{color:t.textColor,callback:v=>'Rp '+v.toLocaleString('id-ID')}, grid:{color:t.gridColor}},
+               x:{ticks:{color:t.textColor}, grid:{display:false}} } }
   });
-
-  renderHistTable(paddedData);
+  renderHistTable(initData);
 
   document.addEventListener('themeChanged', () => {
     if (!activeChart) return;
-    const nt = typeof getChartTheme === 'function' ? getChartTheme() : t;
+    const nt = getChartTheme();
     activeChart.options.scales.y.ticks.color = nt.textColor;
     activeChart.options.scales.y.grid.color  = nt.gridColor;
     activeChart.options.scales.x.ticks.color = nt.textColor;
@@ -392,23 +359,21 @@ function renderHistTable(histArr) {
   });
 })();
 
+// switchChart: called when user clicks a row in the all-locations table
 function switchChart(idx) {
   const row = allRows[idx];
   if (!row || !activeChart) return;
-  
   const hist = Array.isArray(row.history) ? row.history : [];
   const padded = hist.slice(-7);
-  while(padded.length < 7) {
-    padded.unshift(padded[0] ?? 0);
-  }
-  
+  while(padded.length < 7) padded.unshift(padded[0] ?? 0);
   activeChart.data.datasets[0].data = padded;
-  activeChart.update('active'); 
-  renderHistTable(padded); 
-  
+  activeChart.update('active');
+  renderHistTable(padded);
+  // Scroll to chart
   document.getElementById('chartWrapper')?.scrollIntoView({behavior:'smooth', block:'center'});
 }
 </script>
 <?php endif; ?>
+<script>lucide.createIcons();</script>
 </body>
 </html>
