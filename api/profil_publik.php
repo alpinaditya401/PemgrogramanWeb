@@ -37,7 +37,6 @@ $role     = $user['role'];
 $totalLaporan  = (int)$conn->query("SELECT COUNT(*) c FROM komoditas WHERE submitted_by={$user['id']}")?->fetch_assoc()['c'];
 $totalApproved = (int)$conn->query("SELECT COUNT(*) c FROM komoditas WHERE submitted_by={$user['id']} AND status='approved'")?->fetch_assoc()['c'];
 $totalArtikel  = (int)$conn->query("SELECT COUNT(*) c FROM artikel WHERE penulis_id={$user['id']} AND is_publish=1")?->fetch_assoc()['c'];
-$totalDiskusi  = (int)$conn->query("SELECT COUNT(*) c FROM diskusi WHERE user_id={$user['id']} AND is_deleted=0")?->fetch_assoc()['c'];
 
 // 5 laporan terbaru user (yang approved)
 $resLaporan = $conn->query("SELECT nama,lokasi,provinsi,harga_sekarang,harga_kemarin,satuan,updated_at
@@ -46,14 +45,6 @@ $resLaporan = $conn->query("SELECT nama,lokasi,provinsi,harga_sekarang,harga_kem
 $laporanList = [];
 if ($resLaporan) while ($r = $resLaporan->fetch_assoc()) $laporanList[] = $r;
 
-// 5 komentar terbaru user di diskusi
-$resDiskusi = $conn->query("SELECT d.pesan, d.created_at, k.nama as kom_nama, k.id as kom_id
-                             FROM diskusi d
-                             LEFT JOIN komoditas k ON d.komoditas_id=k.id
-                             WHERE d.user_id={$user['id']} AND d.is_deleted=0
-                             ORDER BY d.created_at DESC LIMIT 5");
-$diskusiList = [];
-if ($resDiskusi) while ($r = $resDiskusi->fetch_assoc()) $diskusiList[] = $r;
 
 $roleBadge = ['admin_master'=>['badge-purple','Admin Master'],'admin'=>['badge-green','Admin'],'kontributor'=>['badge-blue','Kontributor'],'user'=>['badge-slate','Pengguna']];
 [$bc,$bl] = $roleBadge[$role] ?? ['badge-slate','User'];
@@ -153,105 +144,23 @@ $pageTitle = 'Profil '.htmlspecialchars($user['username']);
         </div>
         <?php endif; ?>
         <div class="stat-pill">
-          <span class="font-display font-black text-xl text-purple-400"><?= $totalDiskusi ?></span>
-          <span class="text-[10px] text-[var(--text-muted)] mt-0.5">Komentar</span>
-        </div>
-      </div>
+                </h2>
     </div>
-  </div>
-
-  <!-- Laporan terbaru -->
-  <?php if (!empty($laporanList)): ?>
-  <div class="card overflow-hidden mb-5">
-    <div class="px-5 py-4 border-b border-[var(--border)]">
-      <h2 class="font-display font-bold text-[var(--text-primary)] flex items-center gap-2">
-        <i data-lucide="send" class="w-4 h-4 text-brand-500"></i>
-        Laporan Harga Terbaru
-      </h2>
-    </div>
-    <div class="divide-y divide-[var(--border)]">
-      <?php foreach ($laporanList as $lp):
-        $naik=(int)$lp['harga_sekarang']>(int)$lp['harga_kemarin'];
-        $turun=(int)$lp['harga_sekarang']<(int)$lp['harga_kemarin'];
-      ?>
-      <div class="activity-row px-5">
-        <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0">
-          <i data-lucide="tag" class="w-3.5 h-3.5 text-brand-500"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between gap-2">
-            <span class="font-bold text-sm text-[var(--text-primary)]"><?= htmlspecialchars($lp['nama']) ?></span>
-            <span class="font-display font-black text-sm <?= $naik?'text-red-400':($turun?'text-brand-500':'text-[var(--text-muted)]') ?>">
-              <?= rupiah((int)$lp['harga_sekarang']) ?>
-            </span>
-          </div>
-          <div class="text-xs text-[var(--text-muted)]">
-            <?= htmlspecialchars($lp['lokasi']) ?>, <?= htmlspecialchars($lp['provinsi']) ?>
-            · <?= date('d/m/Y', strtotime($lp['updated_at'])) ?>
-          </div>
-        </div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </div>
-  <?php endif; ?>
-
-  <!-- Komentar diskusi terbaru -->
-  <?php if (!empty($diskusiList)): ?>
-  <div class="card overflow-hidden mb-5">
-    <div class="px-5 py-4 border-b border-[var(--border)]">
-      <h2 class="font-display font-bold text-[var(--text-primary)] flex items-center gap-2">
-        <i data-lucide="message-circle" class="w-4 h-4 text-purple-400"></i>
-        Komentar Terbaru di Diskusi
-      </h2>
-    </div>
-    <div class="divide-y divide-[var(--border)]">
-      <?php foreach ($diskusiList as $dk): ?>
-      <div class="activity-row px-5">
-        <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
-          <i data-lucide="message-circle" class="w-3.5 h-3.5 text-purple-400"></i>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm text-[var(--text-secondary)] leading-relaxed line-clamp-2">
-            "<?= htmlspecialchars(mb_substr($dk['pesan'],0,120)) ?><?= mb_strlen($dk['pesan'])>120?'…':'' ?>"
-          </div>
-          <div class="text-xs text-[var(--text-muted)] mt-0.5 flex items-center gap-2">
-            <?php if ($dk['kom_nama']): ?>
-            <a href="diskusi.php?komoditas_id=<?= $dk['kom_id'] ?>"
-               class="text-brand-500 hover:underline">
-              <?= htmlspecialchars($dk['kom_nama']) ?>
-            </a>
-            <span>·</span>
-            <?php endif; ?>
-            <?= date('d/m/Y H:i', strtotime($dk['created_at'])) ?>
-          </div>
-        </div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-    <div class="px-5 py-3 border-t border-[var(--border)]">
-      <a href="diskusi.php" class="text-xs text-brand-500 hover:underline font-semibold">
-        Lihat semua diskusi →
-      </a>
-    </div>
-  </div>
+    
   <?php endif; ?>
 
   <!-- Kosong -->
-  <?php if (empty($laporanList) && empty($diskusiList)): ?>
+  <?php if (empty($laporanList)): ?>
   <div class="card p-12 text-center">
     <i data-lucide="user" class="w-12 h-12 mx-auto opacity-20 mb-3"></i>
     <h3 class="font-display font-bold text-lg text-[var(--text-primary)] mb-2">Belum Ada Aktivitas</h3>
     <p class="text-sm text-[var(--text-muted)]">
-      <?= $isMyself ? 'Mulai kirim laporan harga atau ikut diskusi!' : 'Pengguna ini belum memiliki aktivitas publik.' ?>
+      <?= $isMyself ? 'Mulai kirim laporan harga!' : 'Pengguna ini belum memiliki aktivitas publik.' ?>
     </p>
     <?php if ($isMyself): ?>
     <div class="flex justify-center gap-3 mt-5">
       <a href="dashboard-user.php?tab=laporan" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white rounded-xl text-sm font-bold transition">
         Kirim Laporan
-      </a>
-      <a href="diskusi.php" class="px-5 py-2.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text-secondary)] rounded-xl text-sm font-semibold transition hover:text-[var(--text-primary)]">
-        Ikut Diskusi
       </a>
     </div>
     <?php endif; ?>

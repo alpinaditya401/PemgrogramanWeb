@@ -348,7 +348,6 @@ $provinsiList = [
                     </div>
 
                     <!-- CTA DAFTAR -->
-                    <?php if (!isset($_SESSION['login']) || $_SESSION['login'] !== true): ?>
                     <div class="bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-6 mt-8 shadow-sm">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-5">
                             <div class="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -368,7 +367,6 @@ $provinsiList = [
                             </div>
                         </div>
                     </div>
-                    <?php endif; ?>
                 </div>
 
                 <!-- SIDEBAR PROVINSI -->
@@ -390,7 +388,7 @@ $provinsiList = [
                         </div>
                         <div class="overflow-y-auto flex-1 slim-scroll" id="listProv">
                             <?php foreach ($provinsiList as $idx => $prov): ?>
-                            <a href="<?= isset($_SESSION['login']) && $_SESSION['login'] === true ? 'dashboard-user.php?provinsi=' . urlencode($prov) : 'login.php' ?>"
+                            <a href="login.php"
                                 class="prov-row flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group"
                                 data-name="<?= strtolower($prov) ?>">
                                 <div class="flex items-center gap-3.5">
@@ -402,15 +400,9 @@ $provinsiList = [
                             <?php endforeach; ?>
                         </div>
                         <div class="p-4 border-t border-slate-200 dark:border-white/5 flex-shrink-0 bg-slate-50 dark:bg-[#131722]">
-                            <?php if (!isset($_SESSION['login']) || $_SESSION['login'] !== true): ?>
                             <a href="login.php" class="flex items-center justify-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5">
                                 <i data-lucide="lock" class="w-4 h-4"></i> Login untuk Akses Penuh
                             </a>
-                            <?php else: ?>
-                            <a href="dashboard-user.php" class="flex items-center justify-center gap-2 text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition py-2 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-500/10">
-                                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Buka Dashboard
-                            </a>
-                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -419,7 +411,6 @@ $provinsiList = [
     </section>
 
     <!-- CTA SECTION -->
-    <?php if (!isset($_SESSION['login']) || $_SESSION['login'] !== true): ?>
     <section class="py-16 relative z-10">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="bg-gradient-to-br from-emerald-600 to-teal-600 rounded-3xl p-10 md:p-14 text-center relative overflow-hidden">
@@ -439,7 +430,6 @@ $provinsiList = [
             </div>
         </div>
     </section>
-    <?php endif; ?>
 
     <!-- FOOTER -->
     <footer class="bg-slate-950 dark:bg-[#0b0e14] text-slate-400 py-14 border-t border-slate-900 dark:border-white/5 relative z-10">

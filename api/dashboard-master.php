@@ -165,7 +165,6 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
     <a href="bps-sync.php"        ><i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync Data BPS</a>
     <a href="Kelola-Artikel.php"  ><i data-lucide="file-text" class="w-4 h-4"></i> Kelola Artikel</a>
     <a href="pusat-informasi.php" ><i data-lucide="bell" class="w-4 h-4"></i> Pusat Informasi</a>
-    <a href="diskusi.php"><i data-lucide="message-circle" class="w-4 h-4"></i> Forum Diskusi</a>
     <a href="#" data-action="toggle-theme"><i data-lucide="moon" data-theme-icon="toggle" class="w-4 h-4"></i> Ganti Tema</a>
   </nav>
 

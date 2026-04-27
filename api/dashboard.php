@@ -157,7 +157,6 @@ $pageTitle  = 'Dashboard Admin';
     <a href="index.php" target="_blank"><i data-lucide="home" class="w-4 h-4"></i> Home (Website)</a>
     <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Harga</a>
     <a href="index.php#artikel" target="_blank"><i data-lucide="file-text" class="w-4 h-4"></i> Artikel</a>
-    <a href="diskusi.php"><i data-lucide="message-circle" class="w-4 h-4"></i> Forum Diskusi</a>
     <a href="compare.php"><i data-lucide="git-compare" class="w-4 h-4"></i> Bandingkan</a>
     <a href="export.php?type=komoditas"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</a>
     <a href="profil.php"><i data-lucide="user-circle" class="w-4 h-4"></i> Profil Saya</a>
