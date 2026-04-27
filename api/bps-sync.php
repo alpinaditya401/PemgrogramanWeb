@@ -322,7 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sync_all'])) {
 
 </div><!-- end container -->
 
-<script src="/scripts.js"></script>
+<script src="Assets/scripts.js"></script>
 <script>lucide.createIcons();</script>
 </body>
 </html>

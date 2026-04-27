@@ -55,7 +55,7 @@ $activeNav = 'chart';
 <!doctype html>
 <html lang="id">
 <head><?php include __DIR__ . '/Assets/head.php'; ?>
-<link rel="stylesheet" href="Assets/chart.css">
+
 </head>
 <body>
 <div class="h-9 bg-[var(--bg-secondary)] border-b border-[var(--border)]"></div>
@@ -253,7 +253,7 @@ $activeNav = 'chart';
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="/scripts.js"></script>
+<script src="Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 
@@ -372,6 +372,5 @@ function switchChart(idx) {
 }
 </script>
 <?php endif; ?>
-<script>lucide.createIcons();</script>
 </body>
 </html>

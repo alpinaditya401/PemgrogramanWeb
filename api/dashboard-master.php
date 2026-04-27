@@ -101,11 +101,11 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['import_bps'])) {
 // ── DATA ──────────────────────────────────────────────────────
 $resU = $conn->query("SELECT id,email,username,nama_lengkap,role,is_active,last_login,created_at FROM users ORDER BY FIELD(role,'admin_master','admin','kontributor','user'),created_at DESC");
 $allU = []; $tc = ['admin_master'=>0,'admin'=>0,'kontributor'=>0,'user'=>0];
-while($r=$resU->fetch_assoc()){ $allU[]=$r; $tc[$r['role']]++; }
+if ($resU) while($r=$resU->fetch_assoc()){ $allU[]=$r; $tc[$r['role']]++; }
 $totalU = count($allU);
 
 $resS = $conn->query("SELECT * FROM pengaturan_sistem ORDER BY kelompok ASC,id ASC");
-$settings = []; while($r=$resS->fetch_assoc()) $settings[$r['kelompok']][]=$r;
+$settings = []; if ($resS) while($r=$resS->fetch_assoc()) $settings[$r['kelompok']][]=$r;
 
 $bpsKey    = getSetting($conn,'bps_api_key','');
 $keyActive = !empty($bpsKey) && $bpsKey!=='YOUR_BPS_API_KEY_HERE';
@@ -460,7 +460,7 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
 <script>
 const masterChartData = <?= json_encode(array_map(fn($r)=>['nama'=>$r['nama'],'lokasi'=>$r['lokasi'],'history'=>json_decode($r['history']??'[]',true)],$mChartRows??[]),JSON_UNESCAPED_UNICODE) ?>;
 </script>
-<script src="/scripts.js"></script>
+<script src="Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 

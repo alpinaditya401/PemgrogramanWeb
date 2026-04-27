@@ -62,12 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Data komoditas approved
 $resApproved = $conn->query("SELECT k.*,u.username AS kontributor FROM komoditas k LEFT JOIN users u ON k.submitted_by=u.id WHERE k.status='approved' ORDER BY k.nama ASC");
 $rows=[]; $uNama=[]; $uLokasi=[];
-while($r=$resApproved->fetch_assoc()){ $rows[]=$r; $uNama[]=$r['nama']; $uLokasi[]=$r['lokasi']; }
+if ($resApproved) while($r=$resApproved->fetch_assoc()){ $rows[]=$r; $uNama[]=$r['nama']; $uLokasi[]=$r['lokasi']; }
 $uNama=array_unique($uNama); $uLokasi=array_unique($uLokasi);
 
 // Pending verifikasi
 $resPending = $conn->query("SELECT k.*,u.username AS kontributor FROM komoditas k LEFT JOIN users u ON k.submitted_by=u.id WHERE k.status='pending' ORDER BY k.updated_at DESC");
-$pending=[]; while($r=$resPending->fetch_assoc()) $pending[]=$r;
+$pending=[]; if ($resPending) while($r=$resPending->fetch_assoc()) $pending[]=$r;
 $pendingCount=count($pending);
 
 // Artikel
@@ -595,7 +595,7 @@ const chartData = <?= json_encode(array_map(fn($r)=>['nama'=>$r['nama'],'lokasi'
 <script>
 window.PROVINSI_KOTA_JS = <?= json_encode(PROVINSI_KOTA, JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="/scripts.js"></script>
+<script src="Assets/scripts.js"></script>
 <script>
 lucide.createIcons();
 
