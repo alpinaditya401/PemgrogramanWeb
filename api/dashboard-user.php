@@ -201,10 +201,6 @@ $pageTitle = 'Dashboard';
                 <div class="nav-section">Dashboard</div>
                 <a href="?tab=beranda" class="<?= $activeTab === 'beranda' ? 'active' : '' ?>"><i data-lucide="home"
                         class="w-4 h-4"></i> Beranda</a>
-                <a href="?tab=grafik" class="<?= $activeTab === 'grafik' ? 'active' : '' ?>"><i data-lucide="bar-chart-2"
-                        class="w-4 h-4"></i> Grafik Harga</a>
-                <a href="?tab=artikel" class="<?= $activeTab === 'artikel' ? 'active' : '' ?>"><i data-lucide="file-text"
-                        class="w-4 h-4"></i> Artikel</a>
                 <?php if ($isKontrib): ?>
                     <div class="nav-section">Kontributor</div>
                     <a href="?tab=laporan" class="<?= $activeTab === 'laporan' ? 'active' : '' ?> relative">
@@ -217,7 +213,6 @@ $pageTitle = 'Dashboard';
                 <a href="?tab=info" class="<?= $activeTab === 'info' ? 'active' : '' ?>"><i data-lucide="info"
                         class="w-4 h-4"></i> Info & Kontak</a>
                 <a href="index.php" target="_blank"><i data-lucide="globe" class="w-4 h-4"></i> Lihat Website</a>
-                <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Publik</a>
                 <a href="compare.php"><i data-lucide="git-compare" class="w-4 h-4"></i> Bandingkan Harga</a>
                 <a href="profil.php"><i data-lucide="user-circle" class="w-4 h-4"></i> Profil Saya</a>
                 <a href="#" data-action="toggle-theme"><i data-lucide="moon" data-theme-icon="toggle"
@@ -247,7 +242,7 @@ $pageTitle = 'Dashboard';
         <div class="dash-main">
             <header
                 class="h-16 bg-[var(--bg-card)] border-b border-[var(--border)] flex items-center justify-between px-6 flex-shrink-0">
-                <?php $tabNames = ['beranda' => 'Beranda', 'grafik' => 'Grafik Harga', 'artikel' => 'Artikel Edukasi', 'laporan' => 'Laporan Harga', 'info' => 'Info & Kontak']; ?>
+                <?php $tabNames = ['beranda' => 'Beranda', 'laporan' => 'Laporan Harga', 'info' => 'Info & Kontak']; ?>
                 <h1 class="font-display font-black text-[var(--text-primary)]"><?= $tabNames[$activeTab] ?? 'Dashboard' ?>
                 </h1>
                 <?php if ($isKontrib && $activeTab !== 'laporan'): ?>

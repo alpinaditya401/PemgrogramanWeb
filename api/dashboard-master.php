@@ -159,8 +159,6 @@ if ($resMChart) while ($r = $resMChart->fetch_assoc()) $mChartRows[] = $r;
     <a href="?tab=settings" class="<?= $activeTab==='settings'?'active':'' ?>"><i data-lucide="settings" class="w-4 h-4"></i> Pengaturan</a>
     <div class="nav-section">Panel Lain</div>
     <a href="index.php" target="_blank"><i data-lucide="home" class="w-4 h-4"></i> Home (Website)</a>
-    <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Harga</a>
-    <a href="index.php#artikel" target="_blank"><i data-lucide="file-text" class="w-4 h-4"></i> Artikel</a>
     <a href="dashboard.php"       ><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Panel Admin</a>
     <a href="bps-sync.php"        ><i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync Data BPS</a>
     <a href="Kelola-Artikel.php"  ><i data-lucide="file-text" class="w-4 h-4"></i> Kelola Artikel</a>

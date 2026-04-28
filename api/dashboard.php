@@ -144,7 +144,6 @@ $pageTitle  = 'Dashboard Admin';
       <i data-lucide="shield-check" class="w-4 h-4"></i> Verifikasi
       <?php if($pendingCount>0): ?><span class="ml-auto text-[10px] font-black bg-red-500 text-white px-1.5 py-0.5 rounded-full font-display"><?= $pendingCount ?></span><?php endif; ?>
     </a>
-    <a href="dashboard.php?tab=artikel"    class="<?= $activeTab==='artikel'?'active':'' ?>"><i data-lucide="file-text" class="w-4 h-4"></i> Artikel</a>
     <a href="dashboard.php?tab=pengumuman" class="<?= $activeTab==='pengumuman'?'active':'' ?>"><i data-lucide="bell" class="w-4 h-4"></i> Pengumuman</a>
 
     <?php if ($isMaster): ?>
@@ -155,8 +154,6 @@ $pageTitle  = 'Dashboard Admin';
 
     <div class="nav-section">Lainnya</div>
     <a href="index.php" target="_blank"><i data-lucide="home" class="w-4 h-4"></i> Home (Website)</a>
-    <a href="chart.php"><i data-lucide="bar-chart-2" class="w-4 h-4"></i> Grafik Harga</a>
-    <a href="index.php#artikel" target="_blank"><i data-lucide="file-text" class="w-4 h-4"></i> Artikel</a>
     <a href="compare.php"><i data-lucide="git-compare" class="w-4 h-4"></i> Bandingkan</a>
     <a href="export.php?type=komoditas"><i data-lucide="download" class="w-4 h-4"></i> Export CSV</a>
     <a href="profil.php"><i data-lucide="user-circle" class="w-4 h-4"></i> Profil Saya</a>
