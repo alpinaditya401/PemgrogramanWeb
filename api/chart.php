@@ -294,38 +294,13 @@ const allRows = <?= json_encode(array_map(fn($r)=>[
     'kemarin'  => (int)$r['harga_kemarin'],
     'satuan'   => $r['satuan']??'kg',
 ], $dataAll), JSON_UNESCAPED_UNICODE) ?>;
-
-const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
-let activeChart = null;
-function initChart() {
-  const ctx = document.getElementById('mainChart')?.getContext('2d');
-  if (!ctx) return;
-  const t   = getChartTheme();
-  let grad  = ctx.createLinearGradient(0,0,0,300);
-  grad.addColorStop(0,'rgba(16,185,129,.35)'); grad.addColorStop(1,'rgba(16,185,129,0)');
-
-  const initData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history']??'[]',true)),JSON_UNESCAPED_UNICODE) ?>;
-
-  activeChart = new Chart(ctx, {
-    type:'line',
-    data:{ labels:LABELS, datasets:[{ data:initData, borderColor:'#10b981', backgroundColor:grad,
-      fill:true, tension:.4, borderWidth:2.5,
-      pointBackgroundColor:t.bgColor, pointBorderColor:'#10b981', pointRadius:5, pointHoverRadius:7 }] },
-    options:{ responsive:true, maintainAspectRatio:false,
-      interaction:{ mode:'index', intersect:false },
-      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>'Rp '+c.parsed.y.toLocaleString('id-ID')}} },
-      scales:{ y:{beginAtZero:false, ticks:{color:t.textColor,callback:v=>'Rp '+v.toLocaleString('id-ID')}, grid:{color:t.gridColor}},
-               x:{ticks:{color:t.textColor}, grid:{display:false}} } }
-  });
-
-  // Render history table from chart data
-  function renderHistTable(histArr) {
+function renderHistTable(histArr) {
     const tbody = document.getElementById('histTbody');
     if (!tbody) return;
     const maxH = Math.max(...histArr), minH = Math.min(...histArr);
     tbody.innerHTML = '';
     histArr.forEach((h,i) => {
-    const prev=i>0?histData[i-1]:h, diff=h-prev, pct=prev>0?Math.abs(diff/prev*100).toFixed(2):0;
+    const prev=i>0?histArr[i-1]:h, diff=h-prev, pct=prev>0?Math.abs(diff/prev*100).toFixed(2):0;
     const isToday=i===histData.length-1;
     const barPct = maxH>minH?Math.round((h-minH)/(maxH-minH)*100):50;
     const barCol = diff>0?'#10b981':diff<0?'#ef4444':'#94a3b8';
@@ -355,6 +330,30 @@ function initChart() {
   });
 }
 
+const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
+let activeChart = null;
+function initChart() {
+  const ctx = document.getElementById('mainChart')?.getContext('2d');
+  if (!ctx) return;
+  const t   = getChartTheme();
+  let grad  = ctx.createLinearGradient(0,0,0,300);
+  grad.addColorStop(0,'rgba(16,185,129,.35)'); grad.addColorStop(1,'rgba(16,185,129,0)');
+
+  const initData = allRows[0]?.history ?? <?= json_encode(array_values(json_decode($data['history']??'[]',true)),JSON_UNESCAPED_UNICODE) ?>;
+
+  activeChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:LABELS, datasets:[{ data:initData, borderColor:'#10b981', backgroundColor:grad,
+      fill:true, tension:.4, borderWidth:2.5,
+      pointBackgroundColor:t.bgColor, pointBorderColor:'#10b981', pointRadius:5, pointHoverRadius:7 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>'Rp '+c.parsed.y.toLocaleString('id-ID')}} },
+      scales:{ y:{beginAtZero:false, ticks:{color:t.textColor,callback:v=>'Rp '+v.toLocaleString('id-ID')}, grid:{color:t.gridColor}},
+               x:{ticks:{color:t.textColor}, grid:{display:false}} } }
+  });
+
+  // Render history table from chart data
 // switchChart: called when user clicks a row in the all-locations table
 function switchChart(idx) {
   const row = allRows[idx];
