@@ -297,7 +297,7 @@ const allRows = <?= json_encode(array_map(fn($r)=>[
 
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
-(function initChart() {
+function initChart() {
   const ctx = document.getElementById('mainChart')?.getContext('2d');
   if (!ctx) return;
   const t   = getChartTheme();
@@ -358,15 +358,20 @@ let activeChart = null;
 // switchChart: called when user clicks a row in the all-locations table
 function switchChart(idx) {
   const row = allRows[idx];
-  if (!row || !activeChart) return;
+  // CEK DISINI: Apakah activeChart sudah ada?
+  if (!row || !activeChart || !activeChart.data) {
+    console.error("Chart belum siap atau data tidak ditemukan");
+    return;
+  }
   const hist = Array.isArray(row.history) ? row.history : [];
   const padded = hist.slice(-7);
   while(padded.length < 7) padded.unshift(padded[0] ?? 0);
+  // Update data chart
   activeChart.data.datasets[0].data = padded;
-  activeChart.update('active');
+  activeChart.update('none'); // Gunakan 'none' atau 'active' untuk update tanpa reset animasi penuh
   renderHistTable(padded);
-  // Scroll to chart
   document.getElementById('chartWrapper')?.scrollIntoView({behavior:'smooth', block:'center'});
+}
 }
 </script>
 <?php endif; ?>
