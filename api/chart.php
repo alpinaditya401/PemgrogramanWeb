@@ -372,7 +372,6 @@ function switchChart(idx) {
   renderHistTable(padded);
   document.getElementById('chartWrapper')?.scrollIntoView({behavior:'smooth', block:'center'});
 }
-}
 </script>
 <?php endif; ?>
 <script>lucide.createIcons();</script>
