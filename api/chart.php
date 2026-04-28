@@ -328,7 +328,6 @@ function renderHistTable(histArr) {
     activeChart.data.datasets[0].pointBackgroundColor = nt.bgColor;
     activeChart.update();
   });
-}
 
 const LABELS = ['H-6','H-5','H-4','H-3','H-2','Kemarin','Hari Ini'];
 let activeChart = null;
