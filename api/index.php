@@ -172,7 +172,7 @@ $provinsiList = [
                 </div>
                 <div class="hidden md:flex items-center space-x-6">
                     <a href="#artikel" class="font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-500 transition">Artikel</a>
-                    <a href="chart.php" class="font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-500 transition">Grafik</a>
+                    <a href="Chart.php" class="font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-500 transition">Grafik</a>
                     <button id="themeToggle" class="p-2.5 rounded-full bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition">
                         <i data-lucide="moon" class="w-5 h-5 dark:hidden"></i>
                         <i data-lucide="sun" class="w-5 h-5 hidden dark:block"></i>
@@ -209,7 +209,7 @@ $provinsiList = [
                 <a href="register.php" class="flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold transition shadow-[0_0_20px_rgba(16,185,129,0.3)]">
                     <i data-lucide="user-plus" class="w-5 h-5"></i> Mulai Gratis
                 </a>
-                <a href="chart.php" class="flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 bg-white dark:bg-white/10 hover:bg-slate-50 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl font-semibold transition shadow-sm">
+                <a href="Chart.php" class="flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 bg-white dark:bg-white/10 hover:bg-slate-50 dark:hover:bg-white/20 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-xl font-semibold transition shadow-sm">
                     <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-500"></i> Lihat Grafik Harga
                 </a>
             </div>
@@ -462,7 +462,7 @@ $provinsiList = [
                     <h4 class="text-white font-bold text-sm mb-4 uppercase tracking-wider">Navigasi</h4>
                     <ul class="space-y-2.5 text-sm">
                         <li><a href="index.php" class="text-slate-500 hover:text-emerald-400 transition">Beranda</a></li>
-                        <li><a href="chart.php" class="text-slate-500 hover:text-emerald-400 transition">Grafik Harga</a></li>
+                        <li><a href="Chart.php" class="text-slate-500 hover:text-emerald-400 transition">Grafik Harga</a></li>
                         <li><a href="#artikel" class="text-slate-500 hover:text-emerald-400 transition">Artikel Edukasi</a></li>
                         <li><a href="login.php" class="text-slate-500 hover:text-emerald-400 transition">Login</a></li>
                         <li><a href="register.php" class="text-slate-500 hover:text-emerald-400 transition">Daftar</a></li>
