@@ -1,4 +1,16 @@
 <?php
+// DEBUG SEMENTARA — hapus setelah selesai!
+require_once __DIR__ . '/../Server/koneksi.php';
+
+var_dump([
+    'DB_HOST' => DB_HOST,
+    'DB_USER' => DB_USER,
+    'DB_NAME' => DB_NAME,
+    'DB_PORT' => DB_PORT,
+    'connect_errno' => $conn->connect_errno,
+    'connect_error' => $conn->connect_error,
+]);
+die();
 /**
  * koneksi.php — Koneksi ke TiDB Cloud dengan SSL
  */
