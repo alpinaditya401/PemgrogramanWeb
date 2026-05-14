@@ -1,4 +1,22 @@
 <?php
+/**
+ * Server/koneksi.php — Koneksi ke TiDB Cloud dengan SSL
+ */
+
+// FIX: gunakan ?: '' agar tidak pernah false/null
+define('DB_HOST', getenv('DB_HOST') ?: '');
+define('DB_USER', getenv('DB_USER') ?: '');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_NAME', getenv('DB_NAME') ?: '');
+define('DB_PORT', (int)(getenv('DB_PORT') ?: 4000));
+
+// Jika env vars belum dikonfigurasi, redirect ke halaman nodb
+if (!DB_HOST || !DB_USER || !DB_NAME) {
+    // Pastikan session tersedia sebelum redirect
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    header('Location: /register.php?pesan=nodb');
+    exit();
+}
 // DEBUG SEMENTARA — hapus setelah selesai!
 require_once __DIR__ . '/../Server/koneksi.php';
 
